@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2 } from 'lucide-react';
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Radio } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'STANDBY' | 'ACTIVE' | 'ALERT';
 
@@ -11,7 +11,7 @@ export default function Home() {
   const [phone, setPhone] = useState('');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [countDown, setCountDown] = useState(3);
-  const [cameraReady, setCameraReady] = useState(false); // 相机就绪状态
+  const [cameraReady, setCameraReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -25,26 +25,14 @@ export default function Home() {
 
   const startCamera = async () => {
     try {
-      // 关键优化：限制分辨率为 640x480 (ideal)，极大提升启动速度
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: 'user',
-          width: { ideal: 640 }, 
-          height: { ideal: 480 }
-        } 
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // 只有当视频真正开始播放时，才标记为就绪
-        videoRef.current.onloadedmetadata = () => {
-          setCameraReady(true);
-        };
+        videoRef.current.onloadedmetadata = () => setCameraReady(true);
       }
-    } catch (e) { 
-      console.log("Camera access denied or error"); 
-      // 即使相机失败，也允许进入界面（显示黑色背景）
-      setCameraReady(true);
-    }
+    } catch (e) { setCameraReady(true); }
   };
 
   const speak = (text: string) => {
@@ -116,14 +104,11 @@ export default function Home() {
   };
 
   return (
-    // 使用 h-[100dvh] 代替 h-screen，完美解决手机浏览器地址栏遮挡问题
     <main className="h-[100dvh] w-screen bg-black overflow-hidden flex flex-col items-center justify-center relative select-none touch-none font-sans">
       
       {/* === 背景层 === */}
       <div className="absolute inset-0 z-0 opacity-30 pointer-events-none grayscale contrast-125 overflow-hidden bg-black">
          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-         
-         {/* 加载中的提示 */}
          {!cameraReady && (
            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
              <div className="flex flex-col items-center text-emerald-500/50">
@@ -132,8 +117,6 @@ export default function Home() {
              </div>
            </div>
          )}
-         
-         {/* 扫描线 */}
          <motion.div 
             animate={{ top: ["0%", "100%", "0%"] }}
             transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
@@ -142,7 +125,23 @@ export default function Home() {
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
       </div>
 
-      {/* 演示控制台 - 调整到底部更高位置，防止被iPhone横条遮挡 */}
+      {/* === 🟢 核心新增：AI 状态指示灯 (Status Light) === */}
+      {agentState !== 'SETUP' && (
+        <div className="absolute top-6 right-6 z-[60] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+           {/* 呼吸灯圆点 */}
+           <motion.div 
+             animate={{ opacity: [0.4, 1, 0.4] }}
+             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+             className={`w-3 h-3 rounded-full ${agentState === 'ALERT' ? 'bg-red-500 shadow-[0_0_10px_red]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]'}`}
+           />
+           {/* 文字提示 */}
+           <span className={`text-xs font-bold tracking-wider ${agentState === 'ALERT' ? 'text-red-400' : 'text-emerald-400'}`}>
+             {agentState === 'ALERT' ? '报警中' : 'AI 监护中'}
+           </span>
+        </div>
+      )}
+
+      {/* 演示控制台 */}
       {agentState !== 'SETUP' && (
         <div className="absolute bottom-12 z-[100] flex gap-4 p-3 bg-black/60 rounded-full backdrop-blur-md border border-white/10 opacity-30 hover:opacity-100 transition-opacity">
           <button onClick={() => handleDemoTrigger('STANDBY')} className="p-3 rounded-full bg-white/10 hover:bg-white/30 text-white"><RefreshCcw size={20}/></button>
@@ -167,18 +166,16 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* Standby - 响应式字体调整 */}
+        {/* Standby */}
         {agentState === 'STANDBY' && (
           <motion.div key="standby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex flex-col items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-black/90 z-0"></div>
             <div className="relative z-10 text-center px-4">
-              {/* 字体大小自适应：手机上80px，电脑上150px */}
               <h1 className="text-[80px] md:text-[150px] font-thin text-white/80 leading-none tracking-tighter drop-shadow-2xl">
                 {new Date().getHours()}:{new Date().getMinutes()<10?'0':''}{new Date().getMinutes()}
               </h1>
-              <div className="flex items-center justify-center gap-2 mt-4 text-emerald-400">
-                <Activity size={16} className="animate-pulse"/>
-                <p className="text-xs md:text-sm tracking-widest uppercase font-mono">Vision System Online</p>
+              <div className="flex items-center justify-center gap-2 mt-4 text-emerald-400/50">
+                <p className="text-[10px] tracking-[0.3em] uppercase">System Protected</p>
               </div>
             </div>
           </motion.div>
@@ -189,8 +186,7 @@ export default function Home() {
           <motion.div key="active" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 flex items-center justify-center bg-white/95 backdrop-blur-sm p-6">
             <div className="text-center">
                <div className="w-24 h-24 md:w-32 md:h-32 mx-auto bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-lg">
-                 <User size={60} className="text-blue-500 md:hidden"/>
-                 <User size={80} className="text-blue-500 hidden md:block"/>
+                 <User size={80} className="text-blue-500"/>
                </div>
                <h2 className="text-3xl md:text-4xl font-bold text-slate-800">奶奶，下午好！</h2>
             </div>
@@ -210,7 +206,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.1</div>
+      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.2</div>
     </main>
   );
 }
