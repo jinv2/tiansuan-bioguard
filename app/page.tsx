@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, Bell, Eye } from 'lucide-react';
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, Bell, Eye, ScanLine } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'STANDBY' | 'ACTIVE' | 'ALERT';
 
@@ -11,47 +11,37 @@ export default function Home() {
   const [phone, setPhone] = useState('');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [countDown, setCountDown] = useState(3);
-  const videoRef = useRef<HTMLVideoElement>(null); // 摄像头引用
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // === 1. 记忆功能：启动时读取本地存储 ===
   useEffect(() => {
     const savedPhone = localStorage.getItem('emergency_phone');
     if (savedPhone) {
       setPhone(savedPhone);
-      setAgentState('STANDBY'); // 有号码直接进入待机
+      setAgentState('STANDBY');
     }
-    
-    // 启动真实摄像头 (作为背景)
     startCamera();
   }, []);
 
-  // === 2. 视觉功能：调用真实摄像头 ===
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (e) {
-      console.log("摄像头启动失败 (演示模式忽略)");
-    }
+    } catch (e) { console.log("Camera access denied"); }
   };
 
-  // === 3. 语音功能：智能体说话 ===
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9; // 语速稍慢，适合老人
-      utterance.pitch = 1;
+      utterance.rate = 0.9;
       window.speechSynthesis.speak(utterance);
     }
   };
 
-  // 状态变化时的语音反馈
   useEffect(() => {
     if (agentState === 'ACTIVE') speak("奶奶，下午好。今天阳光不错。");
     if (agentState === 'ALERT') speak("警告，检测到跌倒。正在启动紧急响应。");
   }, [agentState]);
 
-  // 模拟循环
   useEffect(() => {
     const autoLoop = setInterval(() => {
       if (!isDemoMode && agentState !== 'SETUP' && agentState !== 'ALERT') {
@@ -68,7 +58,6 @@ export default function Home() {
     return () => clearInterval(autoLoop);
   }, [isDemoMode, agentState]);
 
-  // 报警倒计时
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (agentState === 'ALERT' && countDown > 0) {
@@ -82,11 +71,8 @@ export default function Home() {
   const triggerSimulation = () => {
     window.location.href = `sms:${phone}?&body=${encodeURIComponent("【天算急救】检测到跌倒！位置：家中客厅。")}`;
     if ('Notification' in window && Notification.permission === 'granted') {
-      navigator.vibrate?.([200, 100, 200, 100, 500]); // 震动更剧烈
-      new Notification("🔔 紧急警报", {
-        body: `正在联系子女: ${phone}`,
-        icon: '/icon-192x192.png'
-      });
+      navigator.vibrate?.([200, 100, 200, 100, 500]);
+      new Notification("🔔 紧急警报", { body: `正在联系子女: ${phone}`, icon: '/icon-192x192.png' });
     }
   };
 
@@ -99,13 +85,12 @@ export default function Home() {
 
   const handleSavePhone = () => {
     if (phone.length > 5) {
-      localStorage.setItem('emergency_phone', phone); // 保存到本地
+      localStorage.setItem('emergency_phone', phone);
       setAgentState('STANDBY');
       if ('Notification' in window) Notification.requestPermission();
     }
   };
 
-  // 重置功能 (演示用)
   const clearData = () => {
     localStorage.removeItem('emergency_phone');
     setPhone('');
@@ -115,11 +100,25 @@ export default function Home() {
   return (
     <main className="h-screen w-screen bg-black overflow-hidden flex flex-col items-center justify-center relative select-none touch-none font-sans">
       
-      {/* === 背景层：真实摄像头画面 (半透明科技风) === */}
-      <div className="absolute inset-0 z-0 opacity-20 pointer-events-none grayscale contrast-125">
+      {/* === 背景层：真实摄像头 + 激光扫描特效 === */}
+      <div className="absolute inset-0 z-0 opacity-30 pointer-events-none grayscale contrast-125 overflow-hidden">
          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-         {/* 网格遮罩，增加AI视觉感 */}
-         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-50"></div>
+         
+         {/* AI 扫描线 (上下移动) */}
+         <motion.div 
+            animate={{ top: ["0%", "100%", "0%"] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+            className="absolute left-0 w-full h-1 bg-emerald-500/80 shadow-[0_0_20px_rgba(16,185,129,1)] z-10"
+         />
+         
+         {/* 网格遮罩 */}
+         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
+         
+         {/* 四角对焦框 */}
+         <div className="absolute top-10 left-10 w-8 h-8 border-t-2 border-l-2 border-emerald-500/50"></div>
+         <div className="absolute top-10 right-10 w-8 h-8 border-t-2 border-r-2 border-emerald-500/50"></div>
+         <div className="absolute bottom-10 left-10 w-8 h-8 border-b-2 border-l-2 border-emerald-500/50"></div>
+         <div className="absolute bottom-10 right-10 w-8 h-8 border-b-2 border-r-2 border-emerald-500/50"></div>
       </div>
 
       {/* 演示控制台 */}
@@ -141,7 +140,7 @@ export default function Home() {
               <label className="block text-sm text-gray-400 mb-2">输入监护人电话 (永久保存)：</label>
               <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="138..." className="w-full bg-black/50 border border-blue-500/50 rounded-xl px-4 py-4 text-2xl text-white tracking-widest focus:outline-none"/>
               <button onClick={handleSavePhone} disabled={phone.length < 3} className="w-full mt-6 bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl text-xl font-bold flex items-center justify-center gap-2">
-                <Eye size={20} /> 开启 AI 视觉守护
+                <ScanLine size={20} /> 开启 AI 视觉守护
               </button>
             </div>
           </motion.div>
@@ -182,7 +181,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-xs font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN AI LABS v2.0</div>
+      <div className="absolute bottom-4 text-white/20 text-xs font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN AI LABS v2.0 Pro</div>
     </main>
   );
 }
