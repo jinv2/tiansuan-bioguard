@@ -5,11 +5,8 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'export',
   typescript: {
-    ignoreBuildErrors: true, // <--- 关键修改：遇到报错继续构建！
+    ignoreBuildErrors: true, 
   },
-  eslint: {
-    ignoreDuringBuilds: true, // <--- 顺便把代码风格检查也关了
-  }
 };
 
 const pwaConfig = withPWA({

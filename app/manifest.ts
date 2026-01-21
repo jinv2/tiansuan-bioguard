@@ -1,9 +1,12 @@
 import { MetadataRoute } from 'next';
 
+// 🛑 必须加这一行，否则静态导出模式会报错
+export const dynamic = 'force-static';
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '天算AI·生命哨兵',     // 启动画面显示的全名
-    short_name: '天算守护',      // 桌面图标显示的短名 (最重要)
+    name: '天算AI·生命哨兵',
+    short_name: '天算守护',
     description: '全天候老年人跌倒检测与智能监护系统',
     start_url: '/',
     display: 'standalone',
