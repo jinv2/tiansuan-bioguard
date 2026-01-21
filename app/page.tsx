@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, AlertTriangle, User, Activity } from 'lucide-react';
+import { Heart, AlertTriangle, User, Activity, RefreshCcw } from 'lucide-react';
 
 type AgentState = 'STANDBY' | 'ACTIVE' | 'ALERT';
 
@@ -13,7 +13,7 @@ export default function Home() {
   useEffect(() => {
     const autoLoop = setInterval(() => {
       if (!isDemoMode) {
-        // 自动随机演示
+        // 自动随机演示 (非人工干预时)
         const random = Math.random();
         if (random > 0.95) setAgentState('ACTIVE');
         else if (random > 0.99) setAgentState('ALERT');
@@ -32,22 +32,30 @@ export default function Home() {
   const handleDemoTrigger = (mode: AgentState) => {
     setIsDemoMode(true);
     setAgentState(mode);
-    // 5秒后恢复自动
-    setTimeout(() => setIsDemoMode(false), 5000);
+    // 点击后暂停自动播放 10 秒，方便演示讲解
+    setTimeout(() => setIsDemoMode(false), 10000);
   };
 
   return (
     <main className="h-screen w-screen bg-black overflow-hidden flex flex-col items-center justify-center relative select-none touch-none">
       
-      {/* === 隐形控制按钮 (演示专用) === */}
-      {/* 左下角：触发问候 */}
-      <div onClick={() => handleDemoTrigger('ACTIVE')} className="absolute left-0 bottom-0 w-1/3 h-1/2 z-50 cursor-pointer opacity-0" />
-      
-      {/* 右下角：触发报警 */}
-      <div onClick={() => handleDemoTrigger('ALERT')} className="absolute right-0 bottom-0 w-1/3 h-1/2 z-50 cursor-pointer opacity-0" />
-      
-      {/* 顶部：复位 */}
-      <div onClick={() => handleDemoTrigger('STANDBY')} className="absolute top-0 w-full h-1/3 z-50 cursor-pointer opacity-0" />
+      {/* === 可见演示控制台 (Visible Demo Controller) === */}
+      {/* 平时半透明(opacity-30)，鼠标/手指放上去变清晰(hover:opacity-100) */}
+      <div className="absolute bottom-16 z-[100] flex gap-4 p-3 bg-black/40 rounded-full backdrop-blur-md border border-white/10 transition-opacity duration-300 opacity-30 hover:opacity-100">
+        
+        <button onClick={() => handleDemoTrigger('STANDBY')} title="复位/待机" className="p-3 rounded-full bg-white/10 hover:bg-white/30 text-white transition active:scale-90">
+          <RefreshCcw size={24} />
+        </button>
+        
+        <button onClick={() => handleDemoTrigger('ACTIVE')} title="触发问候" className="p-3 rounded-full bg-blue-500/30 hover:bg-blue-500/60 text-blue-200 transition active:scale-90">
+          <Heart size={24} fill="currentColor" />
+        </button>
+        
+        <button onClick={() => handleDemoTrigger('ALERT')} title="触发报警" className="p-3 rounded-full bg-red-600/40 hover:bg-red-600/70 text-red-200 transition active:scale-90 animate-pulse">
+          <AlertTriangle size={24} fill="currentColor" />
+        </button>
+        
+      </div>
 
       <AnimatePresence mode='wait'>
         {/* 状态 1: 待机 (时钟) */}
@@ -102,7 +110,7 @@ export default function Home() {
         )}
       </AnimatePresence>
       
-      <div className="absolute bottom-6 text-white/10 text-xs font-mono tracking-[0.5em]">
+      <div className="absolute bottom-4 text-white/10 text-xs font-mono tracking-[0.5em] pointer-events-none">
         TIANSUAN AI LABS
       </div>
     </main>
