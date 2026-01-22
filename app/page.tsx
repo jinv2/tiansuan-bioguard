@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Volume2, SwitchCamera, ScanFace, CheckCircle2, Play } from 'lucide-react';
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, SwitchCamera, ScanFace, CheckCircle2, Play, Smile } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'SCANNING' | 'STANDBY' | 'ACTIVE' | 'ALERT';
 type ScanStep = 'IDLE' | 'FRONT' | 'SIDE' | 'MOUTH' | 'BLINK' | 'SUCCESS';
@@ -15,11 +15,10 @@ export default function Home() {
   const [userName, setUserName] = useState('');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [countDown, setCountDown] = useState(3);
-  const [cameraReady, setCameraReady] = useState(false);
   const [isMonitorExpanded, setIsMonitorExpanded] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   
-  // 保持视频流的引用，以便在不同界面间传递
+  // 视频流引用
   const activeStreamRef = useRef<MediaStream | null>(null);
   
   const bgVideoRef = useRef<HTMLVideoElement>(null);
@@ -37,24 +36,22 @@ export default function Home() {
     startCamera();
   }, [facingMode]);
 
-  // === 关键修复：当进入扫描模式时，重新绑定视频流 ===
+  // === 关键修复：录入模式下，确保视频流直接对接，且不做特效处理 ===
   useEffect(() => {
     if (agentState === 'SCANNING' && scanVideoRef.current && activeStreamRef.current) {
-      console.log("正在绑定扫描视频流...");
       scanVideoRef.current.srcObject = activeStreamRef.current;
-      scanVideoRef.current.play().catch(e => console.log("扫描视频播放失败", e));
+      scanVideoRef.current.muted = true;
+      scanVideoRef.current.play().catch(e => console.log("Scan video play error", e));
     }
-  }, [agentState]); // 监听状态变化
+  }, [agentState]);
 
   const startCamera = async () => {
-    setCameraReady(false);
     try {
-      // 停止旧流
       if (activeStreamRef.current) {
         activeStreamRef.current.getTracks().forEach(track => track.stop());
       }
       
-      // 移动端优化：使用 640x480 以保证流畅度
+      // 移动端兼容性配置
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: facingMode, 
@@ -63,7 +60,7 @@ export default function Home() {
         } 
       });
 
-      activeStreamRef.current = stream; // 保存流
+      activeStreamRef.current = stream;
 
       const assignAndPlay = (videoRef: React.RefObject<HTMLVideoElement>) => {
         if (videoRef.current) {
@@ -75,13 +72,11 @@ export default function Home() {
 
       assignAndPlay(bgVideoRef);
       assignAndPlay(miniVideoRef);
-      // 注意：这里不赋值 scanVideoRef，因为它还没渲染出来
+      // 只有在渲染后才能赋值 scanVideoRef
       
-      setCameraReady(true);
     } catch (e) { 
       console.log("Camera Error", e);
       if (facingMode === 'environment') setFacingMode('user');
-      else setCameraReady(true);
     }
   };
 
@@ -157,8 +152,7 @@ export default function Home() {
     if (agentState !== 'SCANNING') return;
 
     let timer: NodeJS.Timeout;
-    // 移动端优化：每步 2000ms，更快更流畅
-    const STEP_DELAY = 2000; 
+    const STEP_DELAY = 2500; 
 
     const nextStep = (step: ScanStep, text: string) => {
         speak(text);
@@ -169,23 +163,20 @@ export default function Home() {
 
     switch (scanStep) {
         case 'FRONT':
-            // 刚进入时给一点缓冲时间加载视频
-            timer = setTimeout(() => {
-                 nextStep('SIDE', "请缓慢向右转头");
-            }, 2500); 
-            speak("请正对屏幕，保持不动");
+            timer = setTimeout(() => nextStep('SIDE', "向右转头"), 2000); 
+            speak("请正对屏幕");
             break;
         case 'SIDE':
-            nextStep('MOUTH', "检测成功。请张张嘴");
+            nextStep('MOUTH', "张张嘴");
             break;
         case 'MOUTH':
-            nextStep('BLINK', "特征已提取。请眨眨眼");
+            nextStep('BLINK', "眨眨眼");
             break;
         case 'BLINK':
-            nextStep('SUCCESS', "很好。认证通过");
+            nextStep('SUCCESS', "认证通过");
             break;
         case 'SUCCESS':
-            speak("系统启动中...");
+            speak("系统启动中");
             timer = setTimeout(() => {
                 localStorage.setItem('emergency_phone', phone);
                 localStorage.setItem('emergency_name', userName);
@@ -217,7 +208,7 @@ export default function Home() {
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
       </div>
 
-      {/* 监控窗口 + 数据层 */}
+      {/* 监控窗口 */}
       {agentState !== 'SETUP' && agentState !== 'SCANNING' && (
         <>
             <motion.div 
@@ -276,28 +267,29 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* === 活体检测流程 (Mobile Optimized) === */}
+        {/* === 纯净版活体检测界面 === */}
         {agentState === 'SCANNING' && (
           <motion.div key="scanning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
              
-             {/* 视频层：强制最高层级，防止被遮挡 */}
-             <video ref={scanVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover opacity-80" />
+             {/* 视频层：不透明，清晰，直接展示 */}
+             <video ref={scanVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover opacity-100" />
              
-             {/* UI层 */}
-             <div className="absolute inset-0 bg-black/20 z-10 flex flex-col items-center justify-center">
-                <div className="relative w-64 h-64 rounded-full border-4 border-white/30 flex items-center justify-center overflow-hidden backdrop-blur-none">
+             {/* 扫描引导 UI (半透明遮罩，不挡脸) */}
+             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
+                <div className="relative w-72 h-72 rounded-full border-4 border-white/20 flex items-center justify-center overflow-hidden">
+                   {/* 成功动画 */}
                    <motion.div className="absolute inset-0 border-4 border-green-500 rounded-full" initial={{ scale: 0.8, opacity: 0 }} animate={scanStep === 'SUCCESS' ? { scale: 1, opacity: 1 } : { opacity: 0 }} />
                    
-                   <div className="z-20 text-white drop-shadow-md">
-                      {scanStep === 'FRONT' && <ScanFace size={80} className="animate-pulse opacity-90"/>}
-                      {scanStep === 'SIDE' && <RefreshCcw size={80} className="animate-spin opacity-90" style={{animationDuration: '3s'}}/>}
-                      {scanStep === 'MOUTH' && <div className="text-6xl font-bold">O</div>}
-                      {scanStep === 'BLINK' && <div className="text-6xl font-bold">-_-</div>}
-                      {scanStep === 'SUCCESS' && <CheckCircle2 size={100} className="text-green-500"/>}
+                   {/* 仅在下方显示小图标提示，不挡脸 */}
+                   <div className="absolute bottom-4 text-white drop-shadow-md">
+                      {scanStep === 'SIDE' && <RefreshCcw size={30} className="animate-spin" style={{animationDuration: '3s'}}/>}
+                      {scanStep === 'MOUTH' && <div className="text-2xl font-bold">O</div>}
+                      {scanStep === 'BLINK' && <Smile size={30} className="animate-pulse"/>}
+                      {scanStep === 'SUCCESS' && <CheckCircle2 size={50} className="text-green-500"/>}
                    </div>
                 </div>
 
-                <div className="mt-8 text-center z-20 px-4">
+                <div className="mt-12 text-center px-4 bg-black/40 backdrop-blur-sm rounded-xl py-4 mx-4 border border-white/10">
                    <h2 className="text-3xl font-bold text-white mb-2 shadow-black drop-shadow-md">
                       {scanStep === 'FRONT' && "正对屏幕"}
                       {scanStep === 'SIDE' && "向右转头"}
@@ -305,13 +297,6 @@ export default function Home() {
                       {scanStep === 'BLINK' && "眨眨眼"}
                       {scanStep === 'SUCCESS' && "认证通过"}
                    </h2>
-                   <p className="text-white text-lg font-medium drop-shadow-md">
-                      {scanStep === 'FRONT' && "保持面部在圆圈内"}
-                      {scanStep === 'SIDE' && "检测侧脸..."}
-                      {scanStep === 'MOUTH' && "检测下颚..."}
-                      {scanStep === 'BLINK' && "活体防伪..."}
-                      {scanStep === 'SUCCESS' && "生成模型中..."}
-                   </p>
                 </div>
 
                 {/* 进度条 */}
@@ -328,7 +313,7 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* Standby/Active/Alert States... */}
+        {/* Standby/Active/Alert States */}
         {agentState === 'STANDBY' && (
           <motion.div key="standby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex flex-col items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-black/90 z-0"></div>
@@ -356,7 +341,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v3.0</div>
+      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v3.1</div>
     </main>
   );
 }
