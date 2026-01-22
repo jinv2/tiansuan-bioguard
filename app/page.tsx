@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, SwitchCamera, ScanFace, CheckCircle2, Play, Smile } from 'lucide-react';
+// ⚠️ 关键修改：只引入最基础、最安全的图标，防止崩溃
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, Loader2, Volume2, CheckCircle, Video, Play, Maximize } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'SCANNING' | 'STANDBY' | 'ACTIVE' | 'ALERT';
 type ScanStep = 'IDLE' | 'FRONT' | 'SIDE' | 'MOUTH' | 'BLINK' | 'SUCCESS';
@@ -18,40 +19,47 @@ export default function Home() {
   const [isMonitorExpanded, setIsMonitorExpanded] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   
-  // 视频流引用
   const activeStreamRef = useRef<MediaStream | null>(null);
   
   const bgVideoRef = useRef<HTMLVideoElement>(null);
   const miniVideoRef = useRef<HTMLVideoElement>(null);
   const scanVideoRef = useRef<HTMLVideoElement>(null);
 
+  // 初始化读取
   useEffect(() => {
-    const savedPhone = localStorage.getItem('emergency_phone');
-    const savedName = localStorage.getItem('emergency_name');
-    if (savedPhone && savedName) {
-      setPhone(savedPhone);
-      setUserName(savedName);
-      setAgentState('STANDBY');
+    if (typeof window !== 'undefined') {
+      const savedPhone = localStorage.getItem('emergency_phone');
+      const savedName = localStorage.getItem('emergency_name');
+      if (savedPhone && savedName) {
+        setPhone(savedPhone);
+        setUserName(savedName);
+        setAgentState('STANDBY');
+      }
     }
     startCamera();
   }, [facingMode]);
 
-  // === 关键修复：录入模式下，确保视频流直接对接，且不做特效处理 ===
+  // 绑定扫描视频流
   useEffect(() => {
     if (agentState === 'SCANNING' && scanVideoRef.current && activeStreamRef.current) {
       scanVideoRef.current.srcObject = activeStreamRef.current;
       scanVideoRef.current.muted = true;
-      scanVideoRef.current.play().catch(e => console.log("Scan video play error", e));
+      scanVideoRef.current.play().catch(e => console.log("Scan play error", e));
     }
   }, [agentState]);
 
   const startCamera = async () => {
+    // 安全检查：防止在不支持的浏览器中崩溃
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.log("Browser API not supported");
+      return;
+    }
+
     try {
       if (activeStreamRef.current) {
         activeStreamRef.current.getTracks().forEach(track => track.stop());
       }
       
-      // 移动端兼容性配置
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: facingMode, 
@@ -72,10 +80,10 @@ export default function Home() {
 
       assignAndPlay(bgVideoRef);
       assignAndPlay(miniVideoRef);
-      // 只有在渲染后才能赋值 scanVideoRef
       
     } catch (e) { 
       console.log("Camera Error", e);
+      // 如果后置失败且当前是后置，则切前置
       if (facingMode === 'environment') setFacingMode('user');
     }
   };
@@ -86,7 +94,7 @@ export default function Home() {
   };
 
   const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.0;
@@ -102,6 +110,7 @@ export default function Home() {
     }
   }, [agentState, userName]);
 
+  // 模拟循环
   useEffect(() => {
     const autoLoop = setInterval(() => {
       if (!isDemoMode && agentState !== 'SETUP' && agentState !== 'SCANNING' && agentState !== 'ALERT') {
@@ -110,14 +119,10 @@ export default function Home() {
         else if (random < 0.3) setAgentState('STANDBY');
       }
     }, 3000);
-
-    if ('wakeLock' in navigator) {
-      // @ts-ignore
-      navigator.wakeLock.request('screen').catch(() => {});
-    }
     return () => clearInterval(autoLoop);
   }, [isDemoMode, agentState]);
 
+  // 报警逻辑
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (agentState === 'ALERT' && countDown > 0) {
@@ -129,7 +134,7 @@ export default function Home() {
   }, [agentState, countDown]);
 
   const triggerSimulation = () => {
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       navigator.vibrate?.([500, 200, 500]);
       new Notification(`🔴 ${userName}跌倒警报`, { body: `点击拨打: ${phone}`, icon: '/icon-192x192.png' });
     }
@@ -227,9 +232,10 @@ export default function Home() {
                    </div>
                    <div className={`absolute top-1/4 left-1/4 w-1/2 h-1/2 border rounded-lg transition-colors duration-300 ${agentState === 'ALERT' ? 'border-red-500 shadow-[0_0_20px_red]' : 'border-emerald-500/50'}`}></div>
                 </div>
-
+                
+                {/* 切换镜头按钮 (使用 RefreshCcw 代替 SwitchCamera 防止崩溃) */}
                 <div onClick={toggleCamera} className={`absolute z-30 bg-black/50 backdrop-blur p-2 rounded-full border border-white/20 ${isMonitorExpanded ? 'bottom-8 left-8' : 'bottom-1 left-1 p-1'}`}>
-                  <SwitchCamera size={isMonitorExpanded ? 24 : 14} className="text-white" />
+                  <RefreshCcw size={isMonitorExpanded ? 24 : 14} className="text-white" />
                 </div>
             </motion.div>
 
@@ -267,25 +273,24 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* === 纯净版活体检测界面 === */}
+        {/* 活体检测界面 */}
         {agentState === 'SCANNING' && (
           <motion.div key="scanning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
              
-             {/* 视频层：不透明，清晰，直接展示 */}
+             {/* 视频层 - 不透明 */}
              <video ref={scanVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover opacity-100" />
              
-             {/* 扫描引导 UI (半透明遮罩，不挡脸) */}
+             {/* 扫描引导 UI */}
              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
                 <div className="relative w-72 h-72 rounded-full border-4 border-white/20 flex items-center justify-center overflow-hidden">
-                   {/* 成功动画 */}
                    <motion.div className="absolute inset-0 border-4 border-green-500 rounded-full" initial={{ scale: 0.8, opacity: 0 }} animate={scanStep === 'SUCCESS' ? { scale: 1, opacity: 1 } : { opacity: 0 }} />
                    
-                   {/* 仅在下方显示小图标提示，不挡脸 */}
                    <div className="absolute bottom-4 text-white drop-shadow-md">
+                      {/* 替换了可能导致崩溃的 Smile 图标，用 User 代替 */}
                       {scanStep === 'SIDE' && <RefreshCcw size={30} className="animate-spin" style={{animationDuration: '3s'}}/>}
                       {scanStep === 'MOUTH' && <div className="text-2xl font-bold">O</div>}
-                      {scanStep === 'BLINK' && <Smile size={30} className="animate-pulse"/>}
-                      {scanStep === 'SUCCESS' && <CheckCircle2 size={50} className="text-green-500"/>}
+                      {scanStep === 'BLINK' && <User size={30} className="animate-pulse"/>} 
+                      {scanStep === 'SUCCESS' && <CheckCircle size={50} className="text-green-500"/>}
                    </div>
                 </div>
 
@@ -313,7 +318,7 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* Standby/Active/Alert States */}
+        {/* Standby/Active/Alert... */}
         {agentState === 'STANDBY' && (
           <motion.div key="standby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex flex-col items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-black/90 z-0"></div>
@@ -341,7 +346,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v3.1</div>
+      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v3.2 Safe</div>
     </main>
   );
 }
