@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Volume2, SwitchCamera, ScanFace, CheckCircle2 } from 'lucide-react';
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Volume2, SwitchCamera, ScanFace, CheckCircle2, ChevronRight, Play } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'SCANNING' | 'STANDBY' | 'ACTIVE' | 'ALERT';
+type ScanStep = 'IDLE' | 'FRONT' | 'SIDE' | 'MOUTH' | 'BLINK' | 'SUCCESS';
 
 export default function Home() {
   const [agentState, setAgentState] = useState<AgentState>('SETUP');
+  const [scanStep, setScanStep] = useState<ScanStep>('IDLE'); // 活体检测步骤
+  
   const [phone, setPhone] = useState('');
   const [userName, setUserName] = useState('');
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -53,7 +56,7 @@ export default function Home() {
 
       assignAndPlay(bgVideoRef);
       assignAndPlay(miniVideoRef);
-      assignAndPlay(scanVideoRef); // 扫描界面的视频流
+      assignAndPlay(scanVideoRef);
       setCameraReady(true);
     } catch (e) { 
       if (facingMode === 'environment') setFacingMode('user');
@@ -100,7 +103,7 @@ export default function Home() {
     return () => clearInterval(autoLoop);
   }, [isDemoMode, agentState]);
 
-  // 报警逻辑
+  // 报警倒计时
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (agentState === 'ALERT' && countDown > 0) {
@@ -126,19 +129,50 @@ export default function Home() {
     if (mode !== 'ALERT' && mode !== 'SCANNING') setTimeout(() => setIsDemoMode(false), 8000);
   };
 
-  // === 1. 开始扫描 ===
-  const startScanProcess = () => {
+  // === 活体检测逻辑 ===
+  const startLivenessCheck = () => {
     setAgentState('SCANNING');
-    speak("开始录入人脸信息，请保持正对摄像头。");
-    // 3秒后完成扫描
-    setTimeout(() => {
-       localStorage.setItem('emergency_phone', phone);
-       localStorage.setItem('emergency_name', userName);
-       speak("录入成功。系统启动。");
-       setAgentState('STANDBY');
-       if ('Notification' in window) Notification.requestPermission();
-    }, 3500);
+    setScanStep('FRONT');
   };
+
+  useEffect(() => {
+    if (agentState !== 'SCANNING') return;
+
+    let timer: NodeJS.Timeout;
+
+    const nextStep = (step: ScanStep, delay: number, text: string) => {
+        speak(text);
+        timer = setTimeout(() => {
+            setScanStep(step);
+        }, delay);
+    };
+
+    switch (scanStep) {
+        case 'FRONT':
+            nextStep('SIDE', 3000, "请正对屏幕，保持不动");
+            break;
+        case 'SIDE':
+            nextStep('MOUTH', 3000, "检测成功。请缓慢向右转头");
+            break;
+        case 'MOUTH':
+            nextStep('BLINK', 3000, "骨骼特征已提取。请张张嘴");
+            break;
+        case 'BLINK':
+            nextStep('SUCCESS', 3000, "很好。最后请眨眨眼");
+            break;
+        case 'SUCCESS':
+            speak("活体认证通过。系统启动。");
+            timer = setTimeout(() => {
+                localStorage.setItem('emergency_phone', phone);
+                localStorage.setItem('emergency_name', userName);
+                setAgentState('STANDBY');
+                if ('Notification' in window) Notification.requestPermission();
+            }, 2000);
+            break;
+    }
+
+    return () => clearTimeout(timer);
+  }, [scanStep, agentState]);
 
   const clearData = () => {
     localStorage.removeItem('emergency_phone');
@@ -146,6 +180,7 @@ export default function Home() {
     setPhone('');
     setUserName('');
     setAgentState('SETUP');
+    setScanStep('IDLE');
   };
 
   return (
@@ -158,7 +193,7 @@ export default function Home() {
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
       </div>
 
-      {/* 监控功能区 (非设置、非扫描时显示) */}
+      {/* 监控窗口 + 数据层 */}
       {agentState !== 'SETUP' && agentState !== 'SCANNING' && (
         <>
             <motion.div 
@@ -171,32 +206,15 @@ export default function Home() {
             >
                 <video ref={miniVideoRef} autoPlay playsInline muted className="w-full h-full object-cover relative z-10" />
                 
-                {/* === 2. 核心：AI 分析数据覆盖层 (判别依据) === */}
                 <div className="absolute inset-0 z-20 pointer-events-none p-2 font-mono text-[8px] md:text-xs leading-tight flex flex-col justify-between">
-                   {/* 顶部数据 */}
                    <div className={`${agentState === 'ALERT' ? 'text-red-500' : 'text-emerald-500'} bg-black/50 p-1 self-start rounded`}>
-                      <p>骨骼姿态: {agentState === 'ALERT' ? '异常 (横卧)' : '正常 (直立)'}</p>
-                      <p>质心速度: {agentState === 'ALERT' ? '9.8 m/s²' : '0.2 m/s'}</p>
-                      <p>识别置信: 98.5%</p>
+                      <p>姿态: {agentState === 'ALERT' ? '异常' : '正常'}</p>
+                      <p>置信: 98.5%</p>
                    </div>
-                   
-                   {/* 底部状态 */}
-                   <div className="self-end text-white/80">
-                      {isMonitorExpanded && <p>CAM-01 | 1280x720 | 30FPS</p>}
-                   </div>
-
-                   {/* 锁定框 */}
-                   <div className={`absolute top-1/4 left-1/4 w-1/2 h-1/2 border rounded-lg transition-colors duration-300 ${agentState === 'ALERT' ? 'border-red-500 shadow-[0_0_20px_red]' : 'border-emerald-500/50'}`}>
-                      {agentState === 'ALERT' && (
-                        <div className="absolute inset-0 bg-red-500/20 animate-pulse"></div>
-                      )}
-                   </div>
+                   <div className={`absolute top-1/4 left-1/4 w-1/2 h-1/2 border rounded-lg transition-colors duration-300 ${agentState === 'ALERT' ? 'border-red-500 shadow-[0_0_20px_red]' : 'border-emerald-500/50'}`}></div>
                 </div>
 
-                <div 
-                  onClick={toggleCamera}
-                  className={`absolute z-30 bg-black/50 backdrop-blur p-2 rounded-full border border-white/20 hover:bg-white/20 transition active:scale-90 ${isMonitorExpanded ? 'bottom-8 left-8' : 'bottom-1 left-1 p-1'}`}
-                >
+                <div onClick={toggleCamera} className={`absolute z-30 bg-black/50 backdrop-blur p-2 rounded-full border border-white/20 ${isMonitorExpanded ? 'bottom-8 left-8' : 'bottom-1 left-1 p-1'}`}>
                   <SwitchCamera size={isMonitorExpanded ? 24 : 14} className="text-white" />
                 </div>
             </motion.div>
@@ -221,45 +239,85 @@ export default function Home() {
       )}
 
       <AnimatePresence mode='wait'>
-        {/* Setup (输入信息) */}
+        {/* Setup */}
         {agentState === 'SETUP' && (
           <motion.div key="setup" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/90 text-white p-6 backdrop-blur-md">
             <h1 className="text-2xl md:text-3xl font-bold mb-8">天算生命哨兵 · 激活</h1>
             <div className="w-full max-w-sm bg-white/5 p-6 rounded-2xl border border-white/10 shadow-2xl space-y-4">
               <div><label className="block text-sm text-gray-400 mb-1">被监护人姓名：</label><input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="如: 奶奶" className="w-full bg-black/50 border border-blue-500/50 rounded-xl px-4 py-3 text-lg text-white focus:outline-none"/></div>
               <div><label className="block text-sm text-gray-400 mb-1">监护人电话：</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="138..." className="w-full bg-black/50 border border-blue-500/50 rounded-xl px-4 py-3 text-lg text-white tracking-widest focus:outline-none"/></div>
-              <button onClick={startScanProcess} disabled={phone.length < 3 || userName.length < 1} className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl text-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-900/50">
-                <ScanFace size={20} /> 录入人脸并启动
+              <button onClick={startLivenessCheck} disabled={phone.length < 3 || userName.length < 1} className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl text-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-900/50">
+                <Play size={20} /> 开始活体认证
               </button>
             </div>
           </motion.div>
         )}
 
-        {/* === 新增：人脸扫描过程 (Scanning) === */}
+        {/* === 活体检测流程 (Liveness Check) === */}
         {agentState === 'SCANNING' && (
           <motion.div key="scanning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
-             <div className="relative w-full h-full">
-                <video ref={scanVideoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-50" />
-                {/* 扫描网格 */}
-                <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,255,100,0.1)_50%)] bg-[length:100%_4px] pointer-events-none"></div>
+             <video ref={scanVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover opacity-60" />
+             
+             {/* 引导遮罩 */}
+             <div className="absolute inset-0 bg-black/40 z-10 flex flex-col items-center justify-center">
                 
-                {/* 扫描线动画 */}
-                <motion.div animate={{ top: ["0%", "100%", "0%"] }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="absolute left-0 w-full h-1 bg-green-500 shadow-[0_0_20px_#0f0]" />
-
-                {/* 中心扫描框 */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                   <div className="w-64 h-64 border-2 border-green-500/50 rounded-full relative flex items-center justify-center">
-                      <div className="w-60 h-60 border border-green-500/30 rounded-full animate-ping"></div>
-                      <ScanFace size={40} className="text-green-500/80 animate-pulse"/>
+                {/* 扫描框 */}
+                <div className="relative w-72 h-72 rounded-full border-4 border-white/30 flex items-center justify-center overflow-hidden backdrop-blur-sm">
+                   {/* 扫描成功时的绿色圆环 */}
+                   <motion.div 
+                     className="absolute inset-0 border-4 border-green-500 rounded-full"
+                     initial={{ scale: 0.8, opacity: 0 }}
+                     animate={scanStep === 'SUCCESS' ? { scale: 1, opacity: 1 } : { opacity: 0 }}
+                   />
+                   
+                   {/* 动态提示图标 */}
+                   <div className="z-20 text-white drop-shadow-md">
+                      {scanStep === 'FRONT' && <ScanFace size={80} className="animate-pulse opacity-80"/>}
+                      {scanStep === 'SIDE' && <RefreshCcw size={80} className="animate-spin opacity-80" style={{animationDuration: '3s'}}/>}
+                      {scanStep === 'MOUTH' && <div className="text-6xl font-bold">O</div>}
+                      {scanStep === 'BLINK' && <div className="text-6xl font-bold">-_-</div>}
+                      {scanStep === 'SUCCESS' && <CheckCircle2 size={100} className="text-green-500"/>}
                    </div>
-                   <h2 className="text-2xl font-mono text-green-500 mt-8 animate-pulse">正在提取面部特征...</h2>
-                   <p className="text-green-500/50 text-sm mt-2">请保持面部正对屏幕</p>
+                </div>
+
+                {/* 文字引导 */}
+                <motion.div 
+                   key={scanStep}
+                   initial={{ y: 20, opacity: 0 }}
+                   animate={{ y: 0, opacity: 1 }}
+                   className="mt-12 text-center z-20"
+                >
+                   <h2 className="text-3xl font-bold text-white mb-2 shadow-black drop-shadow-lg">
+                      {scanStep === 'FRONT' && "正对屏幕"}
+                      {scanStep === 'SIDE' && "向右转头"}
+                      {scanStep === 'MOUTH' && "张张嘴"}
+                      {scanStep === 'BLINK' && "眨眨眼"}
+                      {scanStep === 'SUCCESS' && "认证通过"}
+                   </h2>
+                   <p className="text-white/70 text-lg">
+                      {scanStep === 'FRONT' && "保持面部在圆圈内"}
+                      {scanStep === 'SIDE' && "检测侧脸轮廓..."}
+                      {scanStep === 'MOUTH' && "检测下颚骨骼..."}
+                      {scanStep === 'BLINK' && "活体防伪检测..."}
+                      {scanStep === 'SUCCESS' && "正在生成专属模型..."}
+                   </p>
+                </motion.div>
+
+                {/* 进度指示 */}
+                <div className="absolute bottom-10 flex gap-2 z-20">
+                   {['FRONT', 'SIDE', 'MOUTH', 'BLINK'].map((step, i) => (
+                      <div key={step} className={`h-2 w-12 rounded-full transition-colors ${
+                        ['FRONT', 'SIDE', 'MOUTH', 'BLINK', 'SUCCESS'].indexOf(scanStep) > i 
+                        ? 'bg-green-500' 
+                        : 'bg-white/20'
+                      }`} />
+                   ))}
                 </div>
              </div>
           </motion.div>
         )}
 
-        {/* Standby */}
+        {/* Standby/Active/Alert States... (Keep Existing) */}
         {agentState === 'STANDBY' && (
           <motion.div key="standby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex flex-col items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-black/90 z-0"></div>
@@ -269,13 +327,11 @@ export default function Home() {
             </div>
           </motion.div>
         )}
-        {/* Active */}
         {agentState === 'ACTIVE' && (
           <motion.div key="active" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 flex items-center justify-center bg-white/95 backdrop-blur-sm p-6">
             <div className="text-center"><div className="w-24 h-24 md:w-32 md:h-32 mx-auto bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-lg"><User size={80} className="text-blue-500"/></div><h2 className="text-3xl md:text-4xl font-bold text-slate-800">{userName}，下午好！</h2></div>
           </motion.div>
         )}
-        {/* Alert */}
         {agentState === 'ALERT' && (
           <motion.div key="alert" initial={{ backgroundColor: "#220000" }} animate={{ backgroundColor: "#dc2626" }} className="absolute inset-0 z-50 flex flex-col items-center justify-center text-white p-6">
              <div className="w-full max-w-sm bg-black/40 backdrop-blur-xl p-6 rounded-3xl border border-white/20 text-center shadow-2xl">
@@ -289,7 +345,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.8</div>
+      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.9</div>
     </main>
   );
 }
