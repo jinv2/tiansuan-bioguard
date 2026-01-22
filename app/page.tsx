@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// ⚠️ 关键修改：只引入最基础、最安全的图标，防止崩溃
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, Loader2, Volume2, CheckCircle, Video, Play, Maximize } from 'lucide-react';
+// 使用安全图标
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, CheckCircle, Play, Maximize } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'SCANNING' | 'STANDBY' | 'ACTIVE' | 'ALERT';
 type ScanStep = 'IDLE' | 'FRONT' | 'SIDE' | 'MOUTH' | 'BLINK' | 'SUCCESS';
@@ -18,14 +18,22 @@ export default function Home() {
   const [countDown, setCountDown] = useState(3);
   const [isMonitorExpanded, setIsMonitorExpanded] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [greeting, setGreeting] = useState(''); // 新增：实时问候语
   
   const activeStreamRef = useRef<MediaStream | null>(null);
-  
   const bgVideoRef = useRef<HTMLVideoElement>(null);
   const miniVideoRef = useRef<HTMLVideoElement>(null);
   const scanVideoRef = useRef<HTMLVideoElement>(null);
 
-  // 初始化读取
+  // === 1. 核心逻辑：获取真实时间问候 ===
+  const updateGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 11) return "上午好";
+    if (hour >= 11 && hour < 13) return "中午好";
+    if (hour >= 13 && hour < 18) return "下午好";
+    return "晚上好";
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedPhone = localStorage.getItem('emergency_phone');
@@ -39,7 +47,6 @@ export default function Home() {
     startCamera();
   }, [facingMode]);
 
-  // 绑定扫描视频流
   useEffect(() => {
     if (agentState === 'SCANNING' && scanVideoRef.current && activeStreamRef.current) {
       scanVideoRef.current.srcObject = activeStreamRef.current;
@@ -49,11 +56,7 @@ export default function Home() {
   }, [agentState]);
 
   const startCamera = async () => {
-    // 安全检查：防止在不支持的浏览器中崩溃
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      console.log("Browser API not supported");
-      return;
-    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
     try {
       if (activeStreamRef.current) {
@@ -80,10 +83,7 @@ export default function Home() {
 
       assignAndPlay(bgVideoRef);
       assignAndPlay(miniVideoRef);
-      
     } catch (e) { 
-      console.log("Camera Error", e);
-      // 如果后置失败且当前是后置，则切前置
       if (facingMode === 'environment') setFacingMode('user');
     }
   };
@@ -102,8 +102,13 @@ export default function Home() {
     }
   };
 
+  // === 2. 状态变化时触发语音 ===
   useEffect(() => {
-    if (agentState === 'ACTIVE') speak(`${userName}，下午好。`);
+    if (agentState === 'ACTIVE') {
+        const timeGreeting = updateGreeting(); // 获取当前时间
+        setGreeting(timeGreeting);
+        speak(`${userName}，${timeGreeting}。`); // 读出真实时间
+    }
     if (agentState === 'ALERT') {
         speak(`警报！检测到${userName}跌倒。`);
         setIsMonitorExpanded(false);
@@ -122,7 +127,6 @@ export default function Home() {
     return () => clearInterval(autoLoop);
   }, [isDemoMode, agentState]);
 
-  // 报警逻辑
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (agentState === 'ALERT' && countDown > 0) {
@@ -155,31 +159,20 @@ export default function Home() {
 
   useEffect(() => {
     if (agentState !== 'SCANNING') return;
-
     let timer: NodeJS.Timeout;
     const STEP_DELAY = 2500; 
-
     const nextStep = (step: ScanStep, text: string) => {
         speak(text);
-        timer = setTimeout(() => {
-            setScanStep(step);
-        }, STEP_DELAY);
+        timer = setTimeout(() => { setScanStep(step); }, STEP_DELAY);
     };
-
     switch (scanStep) {
         case 'FRONT':
             timer = setTimeout(() => nextStep('SIDE', "向右转头"), 2000); 
             speak("请正对屏幕");
             break;
-        case 'SIDE':
-            nextStep('MOUTH', "张张嘴");
-            break;
-        case 'MOUTH':
-            nextStep('BLINK', "眨眨眼");
-            break;
-        case 'BLINK':
-            nextStep('SUCCESS', "认证通过");
-            break;
+        case 'SIDE': nextStep('MOUTH', "张张嘴"); break;
+        case 'MOUTH': nextStep('BLINK', "眨眨眼"); break;
+        case 'BLINK': nextStep('SUCCESS', "认证通过"); break;
         case 'SUCCESS':
             speak("系统启动中");
             timer = setTimeout(() => {
@@ -190,7 +183,6 @@ export default function Home() {
             }, 2000);
             break;
     }
-
     return () => clearTimeout(timer);
   }, [scanStep, agentState]);
 
@@ -206,7 +198,7 @@ export default function Home() {
   return (
     <main className="h-[100dvh] w-screen bg-black overflow-hidden flex flex-col items-center justify-center relative select-none touch-none font-sans">
       
-      {/* 背景层 */}
+      {/* 背景 */}
       <div className="absolute inset-0 z-0 opacity-30 pointer-events-none grayscale contrast-125 overflow-hidden bg-black">
          <video ref={bgVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
          <motion.div animate={{ top: ["0%", "100%", "0%"] }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} className="absolute left-0 w-full h-1 bg-emerald-500/80 shadow-[0_0_20px_rgba(16,185,129,1)] z-10" />
@@ -224,7 +216,6 @@ export default function Home() {
                 }`}
             >
                 <video ref={miniVideoRef} autoPlay playsInline muted className="w-full h-full object-cover relative z-10" />
-                
                 <div className="absolute inset-0 z-20 pointer-events-none p-2 font-mono text-[8px] md:text-xs leading-tight flex flex-col justify-between">
                    <div className={`${agentState === 'ALERT' ? 'text-red-500' : 'text-emerald-500'} bg-black/50 p-1 self-start rounded`}>
                       <p>姿态: {agentState === 'ALERT' ? '异常' : '正常'}</p>
@@ -232,8 +223,6 @@ export default function Home() {
                    </div>
                    <div className={`absolute top-1/4 left-1/4 w-1/2 h-1/2 border rounded-lg transition-colors duration-300 ${agentState === 'ALERT' ? 'border-red-500 shadow-[0_0_20px_red]' : 'border-emerald-500/50'}`}></div>
                 </div>
-                
-                {/* 切换镜头按钮 (使用 RefreshCcw 代替 SwitchCamera 防止崩溃) */}
                 <div onClick={toggleCamera} className={`absolute z-30 bg-black/50 backdrop-blur p-2 rounded-full border border-white/20 ${isMonitorExpanded ? 'bottom-8 left-8' : 'bottom-1 left-1 p-1'}`}>
                   <RefreshCcw size={isMonitorExpanded ? 24 : 14} className="text-white" />
                 </div>
@@ -248,7 +237,7 @@ export default function Home() {
         </>
       )}
 
-      {/* 演示控制台 */}
+      {/* 控制台 */}
       {agentState !== 'SETUP' && agentState !== 'SCANNING' && !isMonitorExpanded && (
         <div className="absolute bottom-12 z-[100] flex gap-4 p-3 bg-black/60 rounded-full backdrop-blur-md border border-white/10 opacity-30 hover:opacity-100 transition-opacity">
           <button onClick={() => handleDemoTrigger('STANDBY')} className="p-3 rounded-full bg-white/10 hover:bg-white/30 text-white"><RefreshCcw size={20}/></button>
@@ -259,7 +248,7 @@ export default function Home() {
       )}
 
       <AnimatePresence mode='wait'>
-        {/* Setup */}
+        {/* SETUP */}
         {agentState === 'SETUP' && (
           <motion.div key="setup" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/90 text-white p-6 backdrop-blur-md">
             <h1 className="text-2xl md:text-3xl font-bold mb-8">天算生命哨兵 · 激活</h1>
@@ -273,27 +262,20 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* 活体检测界面 */}
+        {/* SCANNING */}
         {agentState === 'SCANNING' && (
           <motion.div key="scanning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
-             
-             {/* 视频层 - 不透明 */}
              <video ref={scanVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover opacity-100" />
-             
-             {/* 扫描引导 UI */}
              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
                 <div className="relative w-72 h-72 rounded-full border-4 border-white/20 flex items-center justify-center overflow-hidden">
                    <motion.div className="absolute inset-0 border-4 border-green-500 rounded-full" initial={{ scale: 0.8, opacity: 0 }} animate={scanStep === 'SUCCESS' ? { scale: 1, opacity: 1 } : { opacity: 0 }} />
-                   
                    <div className="absolute bottom-4 text-white drop-shadow-md">
-                      {/* 替换了可能导致崩溃的 Smile 图标，用 User 代替 */}
                       {scanStep === 'SIDE' && <RefreshCcw size={30} className="animate-spin" style={{animationDuration: '3s'}}/>}
                       {scanStep === 'MOUTH' && <div className="text-2xl font-bold">O</div>}
-                      {scanStep === 'BLINK' && <User size={30} className="animate-pulse"/>} 
+                      {scanStep === 'BLINK' && <User size={30} className="animate-pulse"/>}
                       {scanStep === 'SUCCESS' && <CheckCircle size={50} className="text-green-500"/>}
                    </div>
                 </div>
-
                 <div className="mt-12 text-center px-4 bg-black/40 backdrop-blur-sm rounded-xl py-4 mx-4 border border-white/10">
                    <h2 className="text-3xl font-bold text-white mb-2 shadow-black drop-shadow-md">
                       {scanStep === 'FRONT' && "正对屏幕"}
@@ -303,22 +285,16 @@ export default function Home() {
                       {scanStep === 'SUCCESS' && "认证通过"}
                    </h2>
                 </div>
-
-                {/* 进度条 */}
                 <div className="absolute bottom-10 flex gap-2 z-20">
                    {['FRONT', 'SIDE', 'MOUTH', 'BLINK'].map((step, i) => (
-                      <div key={step} className={`h-2 w-12 rounded-full transition-colors ${
-                        ['FRONT', 'SIDE', 'MOUTH', 'BLINK', 'SUCCESS'].indexOf(scanStep) > i 
-                        ? 'bg-green-500' 
-                        : 'bg-white/30'
-                      }`} />
+                      <div key={step} className={`h-2 w-12 rounded-full transition-colors ${['FRONT', 'SIDE', 'MOUTH', 'BLINK', 'SUCCESS'].indexOf(scanStep) > i ? 'bg-green-500' : 'bg-white/30'}`} />
                    ))}
                 </div>
              </div>
           </motion.div>
         )}
 
-        {/* Standby/Active/Alert... */}
+        {/* STATES */}
         {agentState === 'STANDBY' && (
           <motion.div key="standby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex flex-col items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-black/90 z-0"></div>
@@ -330,7 +306,11 @@ export default function Home() {
         )}
         {agentState === 'ACTIVE' && (
           <motion.div key="active" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 flex items-center justify-center bg-white/95 backdrop-blur-sm p-6">
-            <div className="text-center"><div className="w-24 h-24 md:w-32 md:h-32 mx-auto bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-lg"><User size={80} className="text-blue-500"/></div><h2 className="text-3xl md:text-4xl font-bold text-slate-800">{userName}，下午好！</h2></div>
+            <div className="text-center">
+                <div className="w-24 h-24 md:w-32 md:h-32 mx-auto bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-lg"><User size={80} className="text-blue-500"/></div>
+                {/* 3. 显示真实时间问候 */}
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-800">{userName}，{greeting}！</h2>
+            </div>
           </motion.div>
         )}
         {agentState === 'ALERT' && (
@@ -346,7 +326,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v3.2 Safe</div>
+      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v3.3 RealTime</div>
     </main>
   );
 }
