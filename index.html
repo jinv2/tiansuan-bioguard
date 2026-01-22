@@ -3,98 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>天算实验室日志 - Tiansuan Lab Notes</title>
+    <title>天算实验室日志</title>
     <style>
-        :root { --accent-color: #ff7b00; --bg-color: #ffffff; --text-color: #1a1a1a; --border-color: #e5e5e5; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; line-height: 1.6; }
-        nav { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 1000; }
-        .nav-container { max-width: 1000px; margin: 0 auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; height: 60px; }
-        .logo { font-weight: 700; color: #000; text-decoration: none; display: flex; align-items: center; gap: 10px; }
-        .logo img { height: 32px; border-radius: 6px; }
-        .nav-group { display: flex; gap: 20px; }
-        .nav-link { text-decoration: none; color: #666; font-weight: 600; }
-        .nav-link.active { color: var(--accent-color); }
-        .container { max-width: 800px; margin: 0 auto; padding: 60px 20px; }
-        .article-list { display: flex; flex-direction: column; gap: 30px; }
-        .article-card { display: block; text-decoration: none; color: inherit; border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; background: #fff; transition: all 0.2s; }
-        .article-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.05); border-color: var(--accent-color); }
-        .meta-row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; font-size: 0.85rem; }
-        .category-tag { padding: 2px 8px; border-radius: 4px; font-weight: 500; }
-        .tag-new { background: #ffebee; color: #c62828; }
-        .tag-release { background: #e8f5e9; color: #2e7d32; }
-        .tag-doc { background: #fff3e0; color: #ef6c00; }
-        .tag-dev { background: #e3f2fd; color: #1565c0; }
-        .tag-system { background: #f3e5f5; color: #7b1fa2; }
-        .article-title { margin: 0 0 10px 0; font-size: 1.4rem; font-weight: 700; }
-        .read-more { margin-top: 15px; color: var(--accent-color); font-weight: 600; display: inline-block; }
-        .read-more-secondary { color: #666; margin-left: 20px; font-weight: 600; font-size: 0.9rem; }
-        footer { text-align: center; margin-top: 80px; color: #999; font-size: 0.85rem; padding-bottom: 40px;}
+        body { font-family: -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f9f9f9; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #eee; }
+        .tag { background: #ffebee; color: #c62828; padding: 2px 6px; font-size: 0.8rem; border-radius: 4px; font-weight: bold; }
+        a { text-decoration: none; color: #ff7b00; font-weight: bold; }
     </style>
 </head>
 <body>
-    <nav>
-        <div class="nav-container">
-            <a href="https://tiansuanai.netlify.app/" class="logo"><img src="logo.jpg"><span>天算AI</span></a>
-            <div class="nav-group">
-                <a href="https://tiansuanai.netlify.app/" class="nav-link">🏠 首页</a>
-                <a href="https://tiansuanblog.netlify.app/" class="nav-link active">📘 日志</a>
-                <a href="https://tiansuanblog.netlify.app/video-gallery.html" class="nav-link">🎬 影音</a>
-            </div>
-        </div>
-    </nav>
-    <div class="container">
-        <header style="text-align: center; margin-bottom: 50px;">
-            <h1 style="font-size: 2.2rem; margin-bottom: 10px;">实验室日志 & 发布记录</h1>
-            <p style="color: #666;">Documentation, Engineering & Releases</p>
-        </header>
-        <div class="article-list">
-            
-            <div class="article-card"> 
-                <div class="meta-row">
-                    <span class="category-tag tag-new">🔥 New Release</span>
-                    <span class="category-tag tag-release">AI Healthcare</span>
-                    <span class="date" style="color:#999">2026-01-22</span>
-                </div>
-                <h2 class="article-title">天算·生命哨兵 (BioGuard v3.5) - 智能监护系统</h2>
-                <p style="color:#555">无需穿戴设备，旧手机秒变 24 小时 AI 护工。集成金融级活体认证、实时姿态可视化分析与自动跌倒报警系统。</p>
-                <div style="margin-top: 20px;">
-                    <a href="https://tiansuan-bioguard.netlify.app/" target="_blank" class="read-more">🚀 启动APP (v3.5)</a>
-                    <a href="posts/bioguard-manual.html" class="read-more-secondary">📖 阅读使用手册</a>
-                </div>
-            </div>
-
-            <a href="posts/deepseek-ai-agent-guide.html" class="article-card">
-                <div class="meta-row"><span class="category-tag tag-doc">Doc</span><span style="color:#999">2026-01-21</span></div>
-                <h2 class="article-title">专属行业AI智能体使用说明</h2>
-                <span class="read-more">阅读全文 →</span>
-            </a>
-
-            <div class="article-card"> 
-                <div class="meta-row"><span class="category-tag tag-release">Music Tech</span><span style="color:#999">2026-01-20</span></div>
-                <h2 class="article-title">AI Music Agent：智能配器大师</h2>
-                <div style="margin-top: 20px;">
-                    <a href="https://music-agent-pwa.netlify.app/" target="_blank" class="read-more">🚀 启动工具</a>
-                    <a href="posts/music-agent-guide.html" class="read-more-secondary">📖 阅读教程</a>
-                </div>
-            </div>
-
-            <a href="posts/base-guide.html" class="article-card">
-                <div class="meta-row"><span class="category-tag tag-doc">Guide</span><span style="color:#999">2026-01-19</span></div>
-                <h2 class="article-title">天算基地漫游指南</h2>
-                <span class="read-more">阅读全文 →</span>
-            </a>
-            <a href="posts/hebei-agent-release.html" class="article-card">
-                <div class="meta-row"><span class="category-tag tag-release">Indie Dev</span><span style="color:#999">2026-01-15</span></div>
-                <h2 class="article-title">平行人生·河北篇发布</h2>
-                <span class="read-more">阅读全文 →</span>
-            </a>
-             <a href="posts/samsara-engine-release.html" class="article-card">
-                <div class="meta-row"><span class="category-tag tag-dev">Core Engine</span><span style="color:#999">2026-01-14</span></div>
-                <h2 class="article-title">Samsara Engine Release</h2>
-                <span class="read-more">阅读全文 →</span>
-            </a>
-        </div>
-        <footer>&copy; 2026 天算AI科技研发实验室</footer>
+    <div class="header">
+        <h1>天算实验室日志</h1>
+        <p>Tiansuan AI Lab Blog</p>
     </div>
+
+    <div class="card" style="border-left: 5px solid #ff7b00;">
+        <span class="tag">NEW RELEASE</span>
+        <h2>天算·生命哨兵 (BioGuard v3.5)</h2>
+        <p>全天候老年人智能监护系统发布。无需穿戴设备，旧手机秒变 AI 护工。</p>
+        <br>
+        <a href="posts/bioguard-manual.html">📖 阅读使用手册 →</a>
+    </div>
+
+    <div class="card">
+        <h2>AI Music Agent：智能配器大师</h2>
+        <p>基于乐理逻辑的 AI 音乐生成工具。</p>
+        <br>
+        <a href="posts/music-agent-guide.html">阅读教程 →</a>
+    </div>
+
+    <footer style="text-align: center; color: #999; margin-top: 40px;">
+        &copy; 2026 天算AI科技研发实验室
+    </footer>
 </body>
 </html>

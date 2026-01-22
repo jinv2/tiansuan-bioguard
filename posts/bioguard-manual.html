@@ -5,71 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>天算·生命哨兵 (v3.5) 使用手册 - 天算实验室</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.8; color: #333; max-width: 800px; margin: 0 auto; padding: 40px 20px; background: #fff; }
-        h1 { font-size: 2.5rem; margin-bottom: 10px; color: #111; letter-spacing: -1px; }
-        h2 { margin-top: 40px; font-size: 1.8rem; border-bottom: 2px solid #ff7b00; padding-bottom: 10px; display: inline-block; }
-        h3 { margin-top: 30px; font-size: 1.4rem; color: #444; }
-        p { margin-bottom: 20px; font-size: 1.1rem; color: #555; }
-        .meta { color: #888; font-size: 0.9rem; margin-bottom: 40px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
-        .tag { background: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; margin-right: 10px; }
-        .callout { background: #fff3e0; border-left: 5px solid #ff7b00; padding: 20px; margin: 30px 0; border-radius: 4px; }
-        .btn-download { display: inline-block; background: #ff7b00; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; transition: background 0.2s; }
-        .btn-download:hover { background: #e66a00; }
-        ul { margin-bottom: 20px; }
-        li { margin-bottom: 10px; }
-        .nav-back { text-decoration: none; color: #666; font-weight: bold; display: inline-block; margin-bottom: 30px; }
-        .nav-back:hover { color: #ff7b00; }
-        footer { margin-top: 80px; text-align: center; color: #999; font-size: 0.9rem; }
+        body { font-family: -apple-system, sans-serif; line-height: 1.8; color: #333; max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        h1 { border-bottom: 2px solid #ff7b00; padding-bottom: 10px; }
+        .btn { background: #ff7b00; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;}
+        .back { text-decoration: none; color: #666; font-size: 0.9rem; margin-bottom: 20px; display: block; }
     </style>
 </head>
 <body>
-    <a href="../index.html" class="nav-back">← 返回实验室日志</a>
+    <a href="../index.html" class="back">← 返回首页</a>
+    <h1>天算·生命哨兵 (BioGuard v3.5)</h1>
+    <p><strong>发布日期：</strong> 2026-01-22</p>
+    <p>天算·生命哨兵是一台利用旧手机进行全天候老年人跌倒检测的 AI 终端。</p>
+    
+    <h3>🚀 快速启动</h3>
+    <p>请在手机浏览器中访问下方链接：</p>
+    <a href="https://tiansuan-bioguard.netlify.app/" target="_blank" class="btn">启动 APP</a>
 
-    <header>
-        <h1>天算·生命哨兵 (Tiansuan BioGuard)</h1>
-        <p style="font-size: 1.5rem; color: #666; font-weight: 300; margin-top: -10px;">v3.5 用户使用手册</p>
-        <div class="meta">
-            <span>📅 2026-01-22</span> &nbsp; | &nbsp; 
-            <span>✍️ 天算AI科技研发实验室</span> &nbsp; | &nbsp; 
-            <span class="tag">AI Healthcare</span> <span class="tag">Product Manual</span>
-        </div>
-    </header>
+    <h3>📖 核心功能</h3>
+    <ul>
+        <li><strong>活体认证：</strong> 包含正脸、侧脸、张嘴、眨眼四重检测。</li>
+        <li><strong>实时监控：</strong> 支持画中画模式，查看家中实时画面。</li>
+        <li><strong>跌倒报警：</strong> 识别跌倒后自动声光报警并拨打子女电话。</li>
+    </ul>
 
-    <div class="callout">
-        <strong>🚀 快速开始：</strong> 无需下载安装包。使用 Chrome (Android) 或 Safari (iOS) 访问下方链接，并将网页“添加到主屏幕”即可获得原生 APP 体验。
-        <br><br>
-        <a href="https://tiansuan-bioguard.netlify.app/" target="_blank" class="btn-download">启动天算·生命哨兵 v3.5</a>
-    </div>
-
-    <article>
-        <h2>1. 产品简介</h2>
-        <p><strong>天算·生命哨兵</strong> 是一台集成了计算机视觉 (CV) 与生物特征识别技术的智能监护终端。利用闲置的旧手机，即可为家中的独居老人构建一道隐形的生命防线。v3.5 版本新增了金融级活体认证与实时姿态数据可视化功能。</p>
-
-        <h2>2. 首次激活流程</h2>
-        <p>为了确保数据安全与识别精准，初次使用需要完成生物特征录入。</p>
-        <h3>第一步：填写信息</h3>
-        <p>在启动界面输入被监护人的姓名（如“奶奶”）和监护人的电话（子女手机号）。系统将使用这些信息进行个性化语音问候和紧急呼救。</p>
-        <h3>第二步：活体认证 (Liveness Check)</h3>
-        <p>点击“开始活体认证”，跟随 AI 语音指引完成以下 4 个动作：</p>
-        <ul>
-            <li><strong>正对屏幕：</strong> 保持面部在圆框内。</li>
-            <li><strong>向右转头：</strong> 验证侧脸立体特征。</li>
-            <li><strong>张张嘴：</strong> 验证骨骼运动。</li>
-            <li><strong>眨眨眼：</strong> 验证生物活性（防照片攻击）。</li>
-        </ul>
-
-        <h2>3. 日常使用指南</h2>
-        <h3>🕒 智能待机</h3>
-        <p>平时屏幕显示超大时钟，AI 会根据时间段自动问候（如“上午好”）。背景中的绿色扫描线代表系统正在后台静默运行。</p>
-        <h3>🎥 实时监控 (画中画)</h3>
-        <p>点击右上角的黑色小窗口，可将其<strong>放大至全屏</strong>。您可以在此查看高清实时画面和 AI 分析数据流。</p>
-
-        <h2>4. 紧急报警机制</h2>
-        <p>当系统检测到老人跌倒时，会触发<strong>最高级警报</strong>：声光报警 + 语音播报 + 自动拨打子女电话。</p>
-    </article>
-
-    <footer>
-        &copy; 2026 天算AI科技研发实验室 <br>Natural Algorithm AI R&D Lab
+    <h3>⚠️ 注意事项</h3>
+    <p>请务必允许浏览器使用<strong>摄像头</strong>权限，并将手机连接电源。</p>
+    
+    <hr>
+    <footer style="text-align: center; color: #999; margin-top: 50px;">
+        &copy; 2026 天算AI科技研发实验室
     </footer>
 </body>
 </html>
