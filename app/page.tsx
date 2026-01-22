@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// ✅ 只引入必定存在的安全图标
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, CheckCircle, Play, Maximize, Smile } from 'lucide-react';
+// ✅ 修复：补齐了 Volume2 和 Loader2，防止报警时崩溃
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, CheckCircle, Play, Smile, Volume2, Loader2 } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'SCANNING' | 'STANDBY' | 'ACTIVE' | 'ALERT';
 type ScanStep = 'IDLE' | 'FRONT' | 'SIDE' | 'MOUTH' | 'BLINK' | 'SUCCESS';
 
 export default function Home() {
-  // === 1. 防止 Hydration 错误的关键 ===
+  // 防止 Hydration 错误
   const [mounted, setMounted] = useState(false);
   
   const [agentState, setAgentState] = useState<AgentState>('SETUP');
@@ -22,14 +22,14 @@ export default function Home() {
   const [isMonitorExpanded, setIsMonitorExpanded] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [greeting, setGreeting] = useState('');
-  const [clock, setClock] = useState(''); // 独立的时间状态
+  const [clock, setClock] = useState('');
   
   const activeStreamRef = useRef<MediaStream | null>(null);
   const bgVideoRef = useRef<HTMLVideoElement>(null);
   const miniVideoRef = useRef<HTMLVideoElement>(null);
   const scanVideoRef = useRef<HTMLVideoElement>(null);
 
-  // 初始化：确保只在客户端渲染
+  // 初始化
   useEffect(() => {
     setMounted(true);
     const savedPhone = localStorage.getItem('emergency_phone');
@@ -42,7 +42,7 @@ export default function Home() {
     startCamera();
   }, [facingMode]);
 
-  // 时间与问候逻辑
+  // 时间逻辑
   useEffect(() => {
     const updateTime = () => {
         const now = new Date();
@@ -55,7 +55,7 @@ export default function Home() {
         else if (h >= 13 && h < 18) setGreeting("下午好");
         else setGreeting("晚上好");
     };
-    updateTime(); // 立即执行一次
+    updateTime();
     const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -116,11 +116,8 @@ export default function Home() {
     }
   };
 
-  // 状态变化触发语音
   useEffect(() => {
-    if (agentState === 'ACTIVE') {
-        speak(`${userName}，${greeting}。`);
-    }
+    if (agentState === 'ACTIVE') speak(`${userName}，${greeting}。`);
     if (agentState === 'ALERT') {
         speak(`警报！检测到${userName}跌倒。`);
         setIsMonitorExpanded(false);
@@ -139,7 +136,7 @@ export default function Home() {
     return () => clearInterval(autoLoop);
   }, [isDemoMode, agentState]);
 
-  // 报警倒计时
+  // 报警逻辑
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (agentState === 'ALERT' && countDown > 0) {
@@ -170,7 +167,6 @@ export default function Home() {
     setScanStep('FRONT');
   };
 
-  // 活体检测流程
   useEffect(() => {
     if (agentState !== 'SCANNING') return;
     let timer: NodeJS.Timeout;
@@ -209,8 +205,7 @@ export default function Home() {
     setScanStep('IDLE');
   };
 
-  // 如果还没挂载，显示加载中 (防止 Hydration Error)
-  if (!mounted) return <div className="h-screen w-screen bg-black flex items-center justify-center text-white">Loading...</div>;
+  if (!mounted) return <div className="h-screen w-screen bg-black flex items-center justify-center text-white"><Loader2 className="animate-spin"/></div>;
 
   return (
     <main className="h-[100dvh] w-screen bg-black overflow-hidden flex flex-col items-center justify-center relative select-none touch-none font-sans">
@@ -287,8 +282,6 @@ export default function Home() {
                 <div className="relative w-72 h-72 rounded-full border-4 border-white/20 flex items-center justify-center overflow-hidden">
                    <motion.div className="absolute inset-0 border-4 border-green-500 rounded-full" initial={{ scale: 0.8, opacity: 0 }} animate={scanStep === 'SUCCESS' ? { scale: 1, opacity: 1 } : { opacity: 0 }} />
                    <div className="absolute bottom-4 text-white drop-shadow-md">
-                      {/* ✅ 修复：这里只使用已引入的图标，且不使用 ScanFace */}
-                      {scanStep === 'FRONT' && <User size={30} className="animate-pulse opacity-90"/>}
                       {scanStep === 'SIDE' && <RefreshCcw size={30} className="animate-spin" style={{animationDuration: '3s'}}/>}
                       {scanStep === 'MOUTH' && <div className="text-2xl font-bold">O</div>}
                       {scanStep === 'BLINK' && <Smile size={30} className="animate-pulse"/>}
@@ -323,8 +316,6 @@ export default function Home() {
             </div>
           </motion.div>
         )}
-        
-        {/* ACTIVE */}
         {agentState === 'ACTIVE' && (
           <motion.div key="active" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 flex items-center justify-center bg-white/95 backdrop-blur-sm p-6">
             <div className="text-center">
@@ -333,8 +324,6 @@ export default function Home() {
             </div>
           </motion.div>
         )}
-        
-        {/* ALERT */}
         {agentState === 'ALERT' && (
           <motion.div key="alert" initial={{ backgroundColor: "#220000" }} animate={{ backgroundColor: "#dc2626" }} className="absolute inset-0 z-50 flex flex-col items-center justify-center text-white p-6">
              <div className="w-full max-w-sm bg-black/40 backdrop-blur-xl p-6 rounded-3xl border border-white/20 text-center shadow-2xl">
@@ -348,7 +337,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v3.4 Final</div>
+      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v3.5</div>
     </main>
   );
 }
