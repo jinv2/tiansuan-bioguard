@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Volume2, Maximize2, Minimize2 } from 'lucide-react';
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Volume2, Maximize2, Minimize2, SwitchCamera } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'STANDBY' | 'ACTIVE' | 'ALERT';
 
@@ -12,9 +12,10 @@ export default function Home() {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [countDown, setCountDown] = useState(3);
   const [cameraReady, setCameraReady] = useState(false);
-  
-  // === 新增：控制监控窗口是否放大 ===
   const [isMonitorExpanded, setIsMonitorExpanded] = useState(false);
+  
+  // === 新增：摄像头模式 (user=前置, environment=后置) ===
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   
   const bgVideoRef = useRef<HTMLVideoElement>(null);
   const miniVideoRef = useRef<HTMLVideoElement>(null);
@@ -26,32 +27,56 @@ export default function Home() {
       setAgentState('STANDBY');
     }
     startCamera();
-  }, []);
+  }, [facingMode]); // 当点击切换镜头时，重新启动摄像头
 
   const startCamera = async () => {
+    setCameraReady(false); // 切换时先显示加载中
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
-      });
-      // 注意：这里尝试请求后置摄像头('environment')以便看得更清，如果失败会自动回退
-      // 如果需要自拍演示，改回 'user'
+      // 停止之前的流 (如果有)
+      if (bgVideoRef.current && bgVideoRef.current.srcObject) {
+        const tracks = (bgVideoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach(track => track.stop());
+      }
 
-      if (bgVideoRef.current) {
-        bgVideoRef.current.srcObject = stream;
-        bgVideoRef.current.onloadedmetadata = () => setCameraReady(true);
-      }
-      if (miniVideoRef.current) {
-        miniVideoRef.current.srcObject = stream;
-      }
+      console.log("正在请求摄像头:", facingMode);
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: facingMode, 
+          width: { ideal: 1280 }, // 尝试高清
+          height: { ideal: 720 } 
+        } 
+      });
+
+      // 强制赋值并播放
+      const assignAndPlay = (videoRef: React.RefObject<HTMLVideoElement>) => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.muted = true; // 必须静音才能自动播放
+          videoRef.current.play().catch(e => console.log("播放失败，尝试点击触发", e));
+        }
+      };
+
+      assignAndPlay(bgVideoRef);
+      assignAndPlay(miniVideoRef);
+      
+      setCameraReady(true);
+
     } catch (e) { 
-        // 如果后置失败，尝试前置
-        try {
-            const userStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-            if (bgVideoRef.current) bgVideoRef.current.srcObject = userStream;
-            if (miniVideoRef.current) miniVideoRef.current.srcObject = userStream;
-            setCameraReady(true);
-        } catch(err) { setCameraReady(true); }
+      console.log("摄像头启动失败:", e);
+      // 如果后置失败，自动回退到前置
+      if (facingMode === 'environment') {
+          console.log("自动回退到前置摄像头...");
+          setFacingMode('user');
+      } else {
+          setCameraReady(true); // 即使失败也移除loading，避免卡死
+      }
     }
+  };
+
+  const toggleCamera = (e: React.MouseEvent) => {
+    e.stopPropagation(); // 防止触发点击放大
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   const speak = (text: string) => {
@@ -67,7 +92,7 @@ export default function Home() {
     if (agentState === 'ACTIVE') speak("奶奶，下午好。");
     if (agentState === 'ALERT') {
         speak("警报！警报！检测到跌倒。");
-        setIsMonitorExpanded(false); // 报警时强制缩小监控，优先显示求救信息
+        setIsMonitorExpanded(false);
     }
   }, [agentState]);
 
@@ -129,10 +154,9 @@ export default function Home() {
   return (
     <main className="h-[100dvh] w-screen bg-black overflow-hidden flex flex-col items-center justify-center relative select-none touch-none font-sans">
       
-      {/* === 背景层 (模糊特效) === */}
+      {/* === 背景层 === */}
       <div className="absolute inset-0 z-0 opacity-30 pointer-events-none grayscale contrast-125 overflow-hidden bg-black">
          <video ref={bgVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-         {!cameraReady && <div className="absolute inset-0 bg-black/80 z-20" />}
          <motion.div animate={{ top: ["0%", "100%", "0%"] }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} className="absolute left-0 w-full h-1 bg-emerald-500/80 shadow-[0_0_20px_rgba(16,185,129,1)] z-10" />
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
       </div>
@@ -140,28 +164,36 @@ export default function Home() {
       {/* === 顶部功能区 === */}
       {agentState !== 'SETUP' && (
         <>
-            {/* 1. 实时取景窗 (可交互) */}
+            {/* 1. 实时取景窗 */}
             <motion.div 
-                layout // 开启布局动画
+                layout 
                 transition={{ type: "spring", damping: 25, stiffness: 120 }}
                 onClick={() => setIsMonitorExpanded(!isMonitorExpanded)}
-                className={`fixed z-[80] overflow-hidden bg-black border border-white/20 shadow-2xl cursor-pointer ${
+                className={`fixed z-[80] overflow-hidden bg-gray-900 border border-white/20 shadow-2xl cursor-pointer flex items-center justify-center ${
                     isMonitorExpanded 
-                    ? "inset-0 w-full h-full rounded-none" // 放大状态
-                    : "top-4 right-4 w-32 h-24 rounded-lg" // 缩小状态
+                    ? "inset-0 w-full h-full rounded-none" 
+                    : "top-4 right-4 w-32 h-24 rounded-lg"
                 }`}
             >
-                {/* 高清画面 */}
-                <video ref={miniVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                {/* 视频层 */}
+                <video ref={miniVideoRef} autoPlay playsInline muted className="w-full h-full object-cover relative z-10" />
                 
-                {/* UI 覆盖层 */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
+                {/* 如果黑屏，显示加载动画 */}
+                {!cameraReady && (
+                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 z-0">
+                      <Loader2 size={20} className="animate-spin mb-1"/>
+                      <span className="text-[10px]">信号连接中...</span>
+                   </div>
+                )}
+
+                {/* 覆盖层UI */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-end justify-center pb-4 z-20">
                     <p className="text-white text-sm font-bold">{isMonitorExpanded ? "点击缩小" : "点击放大"}</p>
                 </div>
 
-                {/* 角标 UI */}
+                {/* 正常状态UI */}
                 {!isMonitorExpanded && (
-                    <>
+                    <div className="z-20 pointer-events-none">
                         <div className="absolute top-1 left-1 w-2 h-2 border-t border-l border-white/50"></div>
                         <div className="absolute top-1 right-1 w-2 h-2 border-t border-r border-white/50"></div>
                         <div className="absolute bottom-1 left-1 w-2 h-2 border-b border-l border-white/50"></div>
@@ -170,36 +202,36 @@ export default function Home() {
                             <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
                             <span className="text-[8px] text-white/80 font-mono">LIVE</span>
                         </div>
-                        <div className="absolute bottom-1 right-1 bg-black/50 p-1 rounded">
-                            <Maximize2 size={10} className="text-white"/>
-                        </div>
-                    </>
+                    </div>
                 )}
+                
+                {/* 切换镜头按钮 (仅在放大模式显示，或者缩小模式左下角) */}
+                <div 
+                  onClick={toggleCamera}
+                  className={`absolute z-30 bg-black/50 backdrop-blur p-2 rounded-full border border-white/20 hover:bg-white/20 transition active:scale-90 ${isMonitorExpanded ? 'bottom-8 left-8' : 'bottom-1 left-1 p-1'}`}
+                >
+                  <SwitchCamera size={isMonitorExpanded ? 24 : 14} className="text-white" />
+                </div>
 
-                {/* 放大时的关闭按钮 */}
+                {/* 缩小按钮 */}
                 {isMonitorExpanded && (
-                    <div className="absolute top-8 right-8 bg-black/50 backdrop-blur p-3 rounded-full border border-white/20">
+                    <div className="absolute top-8 right-8 bg-black/50 backdrop-blur p-3 rounded-full border border-white/20 z-30">
                         <Minimize2 size={24} className="text-white"/>
                     </div>
                 )}
             </motion.div>
 
-            {/* 2. 呼吸指示灯 (放大时自动隐藏) */}
+            {/* 2. 呼吸灯 */}
             {!isMonitorExpanded && (
-                <motion.div 
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="absolute top-4 right-40 z-[60] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg"
-                >
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute top-4 right-40 z-[60] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
                     <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} className={`w-3 h-3 rounded-full ${agentState === 'ALERT' ? 'bg-red-500 shadow-[0_0_10px_red]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]'}`} />
-                    <span className={`text-xs font-bold tracking-wider ${agentState === 'ALERT' ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {agentState === 'ALERT' ? '报警中' : 'AI 监护中'}
-                    </span>
+                    <span className={`text-xs font-bold tracking-wider ${agentState === 'ALERT' ? 'text-red-400' : 'text-emerald-400'}`}>{agentState === 'ALERT' ? '报警中' : 'AI 监护中'}</span>
                 </motion.div>
             )}
         </>
       )}
 
-      {/* 演示控制台 (放大时隐藏) */}
+      {/* 演示控制台 */}
       {agentState !== 'SETUP' && !isMonitorExpanded && (
         <div className="absolute bottom-12 z-[100] flex gap-4 p-3 bg-black/60 rounded-full backdrop-blur-md border border-white/10 opacity-30 hover:opacity-100 transition-opacity">
           <button onClick={() => handleDemoTrigger('STANDBY')} className="p-3 rounded-full bg-white/10 hover:bg-white/30 text-white"><RefreshCcw size={20}/></button>
@@ -223,42 +255,27 @@ export default function Home() {
             </div>
           </motion.div>
         )}
-
         {/* Standby */}
         {agentState === 'STANDBY' && (
           <motion.div key="standby" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 flex flex-col items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 to-black/90 z-0"></div>
             <div className="relative z-10 text-center px-4">
-              <h1 className="text-[80px] md:text-[150px] font-thin text-white/80 leading-none tracking-tighter drop-shadow-2xl">
-                {new Date().getHours()}:{new Date().getMinutes()<10?'0':''}{new Date().getMinutes()}
-              </h1>
-              <div className="flex items-center justify-center gap-2 mt-4 text-emerald-400/50">
-                <p className="text-[10px] tracking-[0.3em] uppercase">System Protected</p>
-              </div>
+              <h1 className="text-[80px] md:text-[150px] font-thin text-white/80 leading-none tracking-tighter drop-shadow-2xl">{new Date().getHours()}:{new Date().getMinutes()<10?'0':''}{new Date().getMinutes()}</h1>
+              <div className="flex items-center justify-center gap-2 mt-4 text-emerald-400/50"><p className="text-[10px] tracking-[0.3em] uppercase">System Protected</p></div>
             </div>
           </motion.div>
         )}
-
         {/* Active */}
         {agentState === 'ACTIVE' && (
           <motion.div key="active" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 flex items-center justify-center bg-white/95 backdrop-blur-sm p-6">
-            <div className="text-center">
-               <div className="w-24 h-24 md:w-32 md:h-32 mx-auto bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-lg">
-                 <User size={80} className="text-blue-500"/>
-               </div>
-               <h2 className="text-3xl md:text-4xl font-bold text-slate-800">奶奶，下午好！</h2>
-            </div>
+            <div className="text-center"><div className="w-24 h-24 md:w-32 md:h-32 mx-auto bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-lg"><User size={80} className="text-blue-500"/></div><h2 className="text-3xl md:text-4xl font-bold text-slate-800">奶奶，下午好！</h2></div>
           </motion.div>
         )}
-
         {/* Alert */}
         {agentState === 'ALERT' && (
           <motion.div key="alert" initial={{ backgroundColor: "#220000" }} animate={{ backgroundColor: "#dc2626" }} className="absolute inset-0 z-50 flex flex-col items-center justify-center text-white p-6">
              <div className="w-full max-w-sm bg-black/40 backdrop-blur-xl p-6 rounded-3xl border border-white/20 text-center shadow-2xl">
-                <div className="relative">
-                    <AlertTriangle size={60} className="mx-auto mb-6 text-red-500 animate-bounce" />
-                    <Volume2 size={30} className="absolute top-0 right-10 text-white/50 animate-pulse" />
-                </div>
+                <div className="relative"><AlertTriangle size={60} className="mx-auto mb-6 text-red-500 animate-bounce" /><Volume2 size={30} className="absolute top-0 right-10 text-white/50 animate-pulse" /></div>
                 <h1 className="text-3xl md:text-4xl font-black mb-2">严重跌倒警报!</h1>
                 <p className="text-lg opacity-80 mb-6 text-red-200">正在呼叫子女...</p>
                 <div className="w-full bg-black/30 h-4 rounded-full mb-4 overflow-hidden"><motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 3, ease: "linear" }} className="h-full bg-white"/></div>
@@ -268,7 +285,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.5</div>
+      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.6</div>
     </main>
   );
 }
