@@ -3,36 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>天算·生命哨兵 (v3.5) 使用手册 - 天算实验室</title>
+    <title>天算·生命哨兵 (v3.5) 使用手册</title>
     <style>
-        body { font-family: -apple-system, sans-serif; line-height: 1.8; color: #333; max-width: 800px; margin: 0 auto; padding: 40px 20px; }
-        h1 { border-bottom: 2px solid #ff7b00; padding-bottom: 10px; }
-        .btn { background: #ff7b00; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;}
-        .back { text-decoration: none; color: #666; font-size: 0.9rem; margin-bottom: 20px; display: block; }
+        body { font-family: -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; line-height: 1.6; color: #333; }
+        h1 { border-bottom: 3px solid #ff7b00; padding-bottom: 15px; color: #111; }
+        h2 { margin-top: 40px; color: #333; }
+        .tag { background: #e8f5e9; color: #2e7d32; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; vertical-align: middle; }
+        .callout { background: #fff3e0; border-left: 5px solid #ff7b00; padding: 20px; margin: 30px 0; border-radius: 4px; }
+        .btn { display: inline-block; background: #ff7b00; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 10px; }
+        .back-link { text-decoration: none; color: #666; font-size: 0.9rem; margin-bottom: 30px; display: block; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <a href="../index.html" class="back">← 返回首页</a>
-    <h1>天算·生命哨兵 (BioGuard v3.5)</h1>
-    <p><strong>发布日期：</strong> 2026-01-22</p>
-    <p>天算·生命哨兵是一台利用旧手机进行全天候老年人跌倒检测的 AI 终端。</p>
-    
-    <h3>🚀 快速启动</h3>
-    <p>请在手机浏览器中访问下方链接：</p>
-    <a href="https://tiansuan-bioguard.netlify.app/" target="_blank" class="btn">启动 APP</a>
+    <a href="../index.html" class="back-link">← 返回实验室日志</a>
 
-    <h3>📖 核心功能</h3>
-    <ul>
-        <li><strong>活体认证：</strong> 包含正脸、侧脸、张嘴、眨眼四重检测。</li>
-        <li><strong>实时监控：</strong> 支持画中画模式，查看家中实时画面。</li>
-        <li><strong>跌倒报警：</strong> 识别跌倒后自动声光报警并拨打子女电话。</li>
-    </ul>
+    <header>
+        <h1>天算·生命哨兵 (BioGuard) <span class="tag">v3.5 Stable</span></h1>
+        <p style="color: #666;">全天候老年人智能监护系统 · 用户使用手册</p>
+    </header>
 
-    <h3>⚠️ 注意事项</h3>
-    <p>请务必允许浏览器使用<strong>摄像头</strong>权限，并将手机连接电源。</p>
-    
-    <hr>
-    <footer style="text-align: center; color: #999; margin-top: 50px;">
+    <div class="callout">
+        <strong>🚀 立即启动：</strong> 无需下载安装包。请在手机浏览器中访问下方链接：<br><br>
+        <a href="https://tiansuan-bioguard.netlify.app/" target="_blank" class="btn">启动 BioGuard v3.5</a>
+    </div>
+
+    <article>
+        <h2>1. 产品简介</h2>
+        <p>天算·生命哨兵 (BioGuard) 是一台利用闲置旧手机运行的 AI 监护终端。它通过计算机视觉技术，实时分析老人的姿态，一旦检测到跌倒，立即触发报警并通知子女。</p>
+
+        <h2>2. 首次激活 (活体认证)</h2>
+        <p>初次使用时，系统需要录入被监护人的生物特征。请按照语音提示完成：</p>
+        <ul>
+            <li><strong>正对屏幕：</strong> 保持面部在圆框内。</li>
+            <li><strong>左右转头：</strong> 建立三维面部模型。</li>
+            <li><strong>张嘴/眨眼：</strong> 验证活体特征，防止照片欺骗。</li>
+        </ul>
+
+        <h2>3. 核心功能</h2>
+        <ul>
+            <li><strong>实时监控 (画中画)：</strong> 点击右上角小窗口，可放大查看高清实时画面。</li>
+            <li><strong>智能问候：</strong> 根据时间自动问候（上午好/下午好）。</li>
+            <li><strong>跌倒报警：</strong> 识别跌倒后，手机将发出高分贝警报，并自动拨打预设电话。</li>
+        </ul>
+    </article>
+
+    <footer style="margin-top: 80px; text-align: center; font-size: 0.8rem; color: #999;">
         &copy; 2026 天算AI科技研发实验室
     </footer>
 </body>
