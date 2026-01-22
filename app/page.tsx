@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Volume2, Video } from 'lucide-react';
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Volume2, Maximize2, Minimize2 } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'STANDBY' | 'ACTIVE' | 'ALERT';
 
@@ -13,7 +13,9 @@ export default function Home() {
   const [countDown, setCountDown] = useState(3);
   const [cameraReady, setCameraReady] = useState(false);
   
-  // 需要两个引用：一个给背景(特效)，一个给右上角(高清)
+  // === 新增：控制监控窗口是否放大 ===
+  const [isMonitorExpanded, setIsMonitorExpanded] = useState(false);
+  
   const bgVideoRef = useRef<HTMLVideoElement>(null);
   const miniVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -29,21 +31,27 @@ export default function Home() {
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
       });
-      
-      // 1. 给背景视频流
+      // 注意：这里尝试请求后置摄像头('environment')以便看得更清，如果失败会自动回退
+      // 如果需要自拍演示，改回 'user'
+
       if (bgVideoRef.current) {
         bgVideoRef.current.srcObject = stream;
         bgVideoRef.current.onloadedmetadata = () => setCameraReady(true);
       }
-      
-      // 2. 给迷你监视器视频流 (同一路流，不增加负担)
       if (miniVideoRef.current) {
         miniVideoRef.current.srcObject = stream;
       }
-
-    } catch (e) { setCameraReady(true); }
+    } catch (e) { 
+        // 如果后置失败，尝试前置
+        try {
+            const userStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+            if (bgVideoRef.current) bgVideoRef.current.srcObject = userStream;
+            if (miniVideoRef.current) miniVideoRef.current.srcObject = userStream;
+            setCameraReady(true);
+        } catch(err) { setCameraReady(true); }
+    }
   };
 
   const speak = (text: string) => {
@@ -51,14 +59,16 @@ export default function Home() {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.0;
-      utterance.pitch = 1.0;
       window.speechSynthesis.speak(utterance);
     }
   };
 
   useEffect(() => {
     if (agentState === 'ACTIVE') speak("奶奶，下午好。");
-    if (agentState === 'ALERT') speak("警报！警报！检测到跌倒。正在呼叫。");
+    if (agentState === 'ALERT') {
+        speak("警报！警报！检测到跌倒。");
+        setIsMonitorExpanded(false); // 报警时强制缩小监控，优先显示求救信息
+    }
   }, [agentState]);
 
   useEffect(() => {
@@ -127,44 +137,70 @@ export default function Home() {
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
       </div>
 
-      {/* === 顶部监控栏 (Monitor Bar) === */}
+      {/* === 顶部功能区 === */}
       {agentState !== 'SETUP' && (
-        <div className="absolute top-4 right-4 z-[60] flex flex-col items-end gap-3">
-           
-           {/* 1. 实时取景窗 (Live Viewfinder) */}
-           <motion.div 
-             initial={{ scale: 0 }} animate={{ scale: 1 }}
-             className="relative w-32 h-24 bg-black rounded-lg border border-white/20 overflow-hidden shadow-2xl"
-           >
-              {/* 高清画面 */}
-              <video ref={miniVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-              
-              {/* 取景框UI */}
-              <div className="absolute top-1 left-1 w-2 h-2 border-t border-l border-white/50"></div>
-              <div className="absolute top-1 right-1 w-2 h-2 border-t border-r border-white/50"></div>
-              <div className="absolute bottom-1 left-1 w-2 h-2 border-b border-l border-white/50"></div>
-              <div className="absolute bottom-1 right-1 w-2 h-2 border-b border-r border-white/50"></div>
-              
-              {/* REC 标记 */}
-              <div className="absolute top-1 right-2 flex items-center gap-1">
-                <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
-                <span className="text-[8px] text-white/80 font-mono">LIVE</span>
-              </div>
-           </motion.div>
+        <>
+            {/* 1. 实时取景窗 (可交互) */}
+            <motion.div 
+                layout // 开启布局动画
+                transition={{ type: "spring", damping: 25, stiffness: 120 }}
+                onClick={() => setIsMonitorExpanded(!isMonitorExpanded)}
+                className={`fixed z-[80] overflow-hidden bg-black border border-white/20 shadow-2xl cursor-pointer ${
+                    isMonitorExpanded 
+                    ? "inset-0 w-full h-full rounded-none" // 放大状态
+                    : "top-4 right-4 w-32 h-24 rounded-lg" // 缩小状态
+                }`}
+            >
+                {/* 高清画面 */}
+                <video ref={miniVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                
+                {/* UI 覆盖层 */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
+                    <p className="text-white text-sm font-bold">{isMonitorExpanded ? "点击缩小" : "点击放大"}</p>
+                </div>
 
-           {/* 2. 呼吸指示灯 */}
-           <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
-             <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} className={`w-3 h-3 rounded-full ${agentState === 'ALERT' ? 'bg-red-500 shadow-[0_0_10px_red]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]'}`} />
-             <span className={`text-xs font-bold tracking-wider ${agentState === 'ALERT' ? 'text-red-400' : 'text-emerald-400'}`}>
-               {agentState === 'ALERT' ? '报警中' : 'AI 监护中'}
-             </span>
-           </div>
+                {/* 角标 UI */}
+                {!isMonitorExpanded && (
+                    <>
+                        <div className="absolute top-1 left-1 w-2 h-2 border-t border-l border-white/50"></div>
+                        <div className="absolute top-1 right-1 w-2 h-2 border-t border-r border-white/50"></div>
+                        <div className="absolute bottom-1 left-1 w-2 h-2 border-b border-l border-white/50"></div>
+                        <div className="absolute bottom-1 right-1 w-2 h-2 border-b border-r border-white/50"></div>
+                        <div className="absolute top-1 right-2 flex items-center gap-1">
+                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+                            <span className="text-[8px] text-white/80 font-mono">LIVE</span>
+                        </div>
+                        <div className="absolute bottom-1 right-1 bg-black/50 p-1 rounded">
+                            <Maximize2 size={10} className="text-white"/>
+                        </div>
+                    </>
+                )}
 
-        </div>
+                {/* 放大时的关闭按钮 */}
+                {isMonitorExpanded && (
+                    <div className="absolute top-8 right-8 bg-black/50 backdrop-blur p-3 rounded-full border border-white/20">
+                        <Minimize2 size={24} className="text-white"/>
+                    </div>
+                )}
+            </motion.div>
+
+            {/* 2. 呼吸指示灯 (放大时自动隐藏) */}
+            {!isMonitorExpanded && (
+                <motion.div 
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="absolute top-4 right-40 z-[60] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg"
+                >
+                    <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} className={`w-3 h-3 rounded-full ${agentState === 'ALERT' ? 'bg-red-500 shadow-[0_0_10px_red]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]'}`} />
+                    <span className={`text-xs font-bold tracking-wider ${agentState === 'ALERT' ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {agentState === 'ALERT' ? '报警中' : 'AI 监护中'}
+                    </span>
+                </motion.div>
+            )}
+        </>
       )}
 
-      {/* 演示控制台 */}
-      {agentState !== 'SETUP' && (
+      {/* 演示控制台 (放大时隐藏) */}
+      {agentState !== 'SETUP' && !isMonitorExpanded && (
         <div className="absolute bottom-12 z-[100] flex gap-4 p-3 bg-black/60 rounded-full backdrop-blur-md border border-white/10 opacity-30 hover:opacity-100 transition-opacity">
           <button onClick={() => handleDemoTrigger('STANDBY')} className="p-3 rounded-full bg-white/10 hover:bg-white/30 text-white"><RefreshCcw size={20}/></button>
           <button onClick={() => handleDemoTrigger('ACTIVE')} className="p-3 rounded-full bg-blue-500/30 hover:bg-blue-500/60 text-blue-200"><Heart size={20} fill="currentColor"/></button>
@@ -232,7 +268,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.4</div>
+      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.5</div>
     </main>
   );
 }
