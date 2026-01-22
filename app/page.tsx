@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Volume2 } from 'lucide-react';
+import { Heart, AlertTriangle, User, Activity, RefreshCcw, Save, ScanLine, Loader2, Volume2, Video } from 'lucide-react';
 
 type AgentState = 'SETUP' | 'STANDBY' | 'ACTIVE' | 'ALERT';
 
@@ -12,7 +12,10 @@ export default function Home() {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [countDown, setCountDown] = useState(3);
   const [cameraReady, setCameraReady] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  // 需要两个引用：一个给背景(特效)，一个给右上角(高清)
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
+  const miniVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const savedPhone = localStorage.getItem('emergency_phone');
@@ -28,31 +31,34 @@ export default function Home() {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => setCameraReady(true);
+      
+      // 1. 给背景视频流
+      if (bgVideoRef.current) {
+        bgVideoRef.current.srcObject = stream;
+        bgVideoRef.current.onloadedmetadata = () => setCameraReady(true);
       }
+      
+      // 2. 给迷你监视器视频流 (同一路流，不增加负担)
+      if (miniVideoRef.current) {
+        miniVideoRef.current.srcObject = stream;
+      }
+
     } catch (e) { setCameraReady(true); }
   };
 
   const speak = (text: string) => {
     if ('speechSynthesis' in window) {
-      // 停止之前的语音，确保紧急语音优先
-      window.speechSynthesis.cancel(); 
+      window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0; // 语速加快，增加紧迫感
-      utterance.pitch = 1.2;
-      utterance.volume = 1.0; // 最大音量
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
       window.speechSynthesis.speak(utterance);
     }
   };
 
   useEffect(() => {
     if (agentState === 'ACTIVE') speak("奶奶，下午好。");
-    if (agentState === 'ALERT') {
-      // === 关键修改：循环播放高分贝警报音 ===
-      speak("警报！警报！检测到严重跌倒。正在呼叫紧急联系人。");
-    }
+    if (agentState === 'ALERT') speak("警报！警报！检测到跌倒。正在呼叫。");
   }, [agentState]);
 
   useEffect(() => {
@@ -82,21 +88,11 @@ export default function Home() {
   }, [agentState, countDown]);
 
   const triggerSimulation = () => {
-    // 1. 先触发系统通知 (尽可能触达)
     if ('Notification' in window && Notification.permission === 'granted') {
-      navigator.vibrate?.([500, 200, 500, 200, 1000]); // SOS 震动模式
-      new Notification("🔴 严重跌倒警报", { 
-        body: `位置：家中客厅。\n点击立即拨打子女电话: ${phone}`, 
-        icon: '/icon-192x192.png',
-        requireInteraction: true // 强制通知不消失
-      });
+      navigator.vibrate?.([500, 200, 500]);
+      new Notification("🔴 跌倒警报", { body: `点击拨打: ${phone}`, icon: '/icon-192x192.png' });
     }
-
-    // 2. 尝试拨打电话 (如果浏览器拦截，至少上面的警报已经响了)
-    // 为了防止无限弹窗导致卡死，我们延迟1秒执行
-    setTimeout(() => {
-       window.location.href = `tel:${phone}`;
-    }, 1000);
+    setTimeout(() => { window.location.href = `tel:${phone}`; }, 1000);
   };
 
   const handleDemoTrigger = (mode: AgentState) => {
@@ -123,19 +119,47 @@ export default function Home() {
   return (
     <main className="h-[100dvh] w-screen bg-black overflow-hidden flex flex-col items-center justify-center relative select-none touch-none font-sans">
       
-      {/* 背景层 */}
+      {/* === 背景层 (模糊特效) === */}
       <div className="absolute inset-0 z-0 opacity-30 pointer-events-none grayscale contrast-125 overflow-hidden bg-black">
-         <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+         <video ref={bgVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
          {!cameraReady && <div className="absolute inset-0 bg-black/80 z-20" />}
          <motion.div animate={{ top: ["0%", "100%", "0%"] }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} className="absolute left-0 w-full h-1 bg-emerald-500/80 shadow-[0_0_20px_rgba(16,185,129,1)] z-10" />
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
       </div>
 
-      {/* 呼吸指示灯 */}
+      {/* === 顶部监控栏 (Monitor Bar) === */}
       {agentState !== 'SETUP' && (
-        <div className="absolute top-6 right-6 z-[60] flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
-           <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} className={`w-3 h-3 rounded-full ${agentState === 'ALERT' ? 'bg-red-500 shadow-[0_0_10px_red]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]'}`} />
-           <span className={`text-xs font-bold tracking-wider ${agentState === 'ALERT' ? 'text-red-400' : 'text-emerald-400'}`}>{agentState === 'ALERT' ? '报警中' : 'AI 监护中'}</span>
+        <div className="absolute top-4 right-4 z-[60] flex flex-col items-end gap-3">
+           
+           {/* 1. 实时取景窗 (Live Viewfinder) */}
+           <motion.div 
+             initial={{ scale: 0 }} animate={{ scale: 1 }}
+             className="relative w-32 h-24 bg-black rounded-lg border border-white/20 overflow-hidden shadow-2xl"
+           >
+              {/* 高清画面 */}
+              <video ref={miniVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+              
+              {/* 取景框UI */}
+              <div className="absolute top-1 left-1 w-2 h-2 border-t border-l border-white/50"></div>
+              <div className="absolute top-1 right-1 w-2 h-2 border-t border-r border-white/50"></div>
+              <div className="absolute bottom-1 left-1 w-2 h-2 border-b border-l border-white/50"></div>
+              <div className="absolute bottom-1 right-1 w-2 h-2 border-b border-r border-white/50"></div>
+              
+              {/* REC 标记 */}
+              <div className="absolute top-1 right-2 flex items-center gap-1">
+                <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="text-[8px] text-white/80 font-mono">LIVE</span>
+              </div>
+           </motion.div>
+
+           {/* 2. 呼吸指示灯 */}
+           <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+             <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} className={`w-3 h-3 rounded-full ${agentState === 'ALERT' ? 'bg-red-500 shadow-[0_0_10px_red]' : 'bg-emerald-500 shadow-[0_0_10px_#10b981]'}`} />
+             <span className={`text-xs font-bold tracking-wider ${agentState === 'ALERT' ? 'text-red-400' : 'text-emerald-400'}`}>
+               {agentState === 'ALERT' ? '报警中' : 'AI 监护中'}
+             </span>
+           </div>
+
         </div>
       )}
 
@@ -191,7 +215,7 @@ export default function Home() {
           </motion.div>
         )}
 
-        {/* Alert (声光报警版) */}
+        {/* Alert */}
         {agentState === 'ALERT' && (
           <motion.div key="alert" initial={{ backgroundColor: "#220000" }} animate={{ backgroundColor: "#dc2626" }} className="absolute inset-0 z-50 flex flex-col items-center justify-center text-white p-6">
              <div className="w-full max-w-sm bg-black/40 backdrop-blur-xl p-6 rounded-3xl border border-white/20 text-center shadow-2xl">
@@ -201,20 +225,14 @@ export default function Home() {
                 </div>
                 <h1 className="text-3xl md:text-4xl font-black mb-2">严重跌倒警报!</h1>
                 <p className="text-lg opacity-80 mb-6 text-red-200">正在呼叫子女...</p>
-                
                 <div className="w-full bg-black/30 h-4 rounded-full mb-4 overflow-hidden"><motion.div initial={{ width: "0%" }} animate={{ width: "100%" }} transition={{ duration: 3, ease: "linear" }} className="h-full bg-white"/></div>
-                
                 <p className="text-xl font-mono font-bold mb-6">{countDown > 0 ? `等待接通 (${countDown}s)` : '📞 正在拨号...'}</p>
-                
-                {/* 巨大的手动按钮，以防万一 */}
-                <a href={`tel:${phone}`} className="flex items-center justify-center gap-2 bg-white text-red-600 w-full py-6 rounded-2xl font-black text-2xl shadow-xl active:scale-95 transition animate-pulse">
-                   立即通话
-                </a>
+                <a href={`tel:${phone}`} className="flex items-center justify-center gap-2 bg-white text-red-600 w-full py-6 rounded-2xl font-black text-2xl shadow-xl active:scale-95 transition animate-pulse">立即通话</a>
              </div>
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.3</div>
+      <div className="absolute bottom-4 text-white/20 text-[10px] font-mono tracking-[0.5em] pointer-events-none z-50">TIANSUAN v2.4</div>
     </main>
   );
 }
